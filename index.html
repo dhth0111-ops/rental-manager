@@ -25,7 +25,7 @@ h1{font-size:26px;margin:0}.sub{color:var(--muted);font-size:13px}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0 20px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
 .stat b{display:block;font-size:22px;margin-top:4px}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
 .card h3{margin:0 0 6px;font-size:18px}.muted{color:var(--muted);font-size:13px}
 .rooms{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
@@ -51,7 +51,7 @@ textarea{min-height:100px;resize:vertical}
 .badge.ok{background:#eaf7ef;color:var(--ok)} .badge.warn{background:#fff4dd;color:var(--warn)} .badge.danger{background:#fdeaea;color:var(--danger)}
 .hidden{display:none!important}
 .nav{position:fixed;left:0;right:0;bottom:0;background:white;border-top:1px solid var(--line);display:flex;justify-content:center;z-index:10}
-.navin{width:min(980px,100%);display:grid;grid-template-columns:repeat(3,1fr)}
+.navin{width:min(980px,100%);display:grid;grid-template-columns:repeat(4,1fr)}
 .nav button{border:0;background:white;padding:14px 8px;cursor:pointer}.nav button.active{color:var(--accent);font-weight:700}
 .total{font-weight:800;font-size:18px}.total.danger{color:var(--danger)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;display:flex;align-items:center;justify-content:center;padding:18px}
@@ -83,7 +83,7 @@ textarea{min-height:100px;resize:vertical}
 .onboardBox{max-width:620px;margin:auto;background:white;border:1px solid #dbe7f5;border-radius:26px;overflow:hidden;box-shadow:0 15px 45px rgba(25,74,130,.12)}
 .onboardText{text-align:center;padding:24px 22px 10px}.onboardText h1{font-size:42px;color:#0c326b}.onboardText b{color:#1769e0}
 .onboardHero{width:100%;display:block;max-height:330px;object-fit:cover}
-.featureGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px}
+.featureGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px}
 .featureTile{border:1px solid #dfe8f4;border-radius:14px;padding:12px 8px;text-align:center;font-size:12px}.featureTile strong{display:block;margin:5px 0;font-size:13px}
 .startBtn{display:block;width:calc(100% - 28px);margin:4px 14px 22px;border:0;border-radius:14px;background:#1769e0;color:white;font-weight:800;padding:15px;font-size:17px}
 @media(max-width:520px){.onboardText h1{font-size:36px}.featureGrid{grid-template-columns:repeat(2,1fr)}}
@@ -140,7 +140,7 @@ textarea{min-height:100px;resize:vertical}
     
     <div id="dashboardExtras"></div>
     <div class="quick"><button onclick="openPropertyModal()">🏢 임대물건 추가</button><button onclick="quickMemo()">📝 메모 추가</button></div>
-    <div class="summaryTitle">임대물건</div>
+    <div id="rentalListAnchor" class="summaryTitle">임대물건</div>
     <div id="propertyGrid" class="grid"></div>
   </div>
 
@@ -187,13 +187,18 @@ textarea{min-height:100px;resize:vertical}
       <div class="row"><div>상태</div><div><span class="badge">미연결</span></div></div>
       <div class="actions"><button class="btn" onclick="showToast('Firebase 설정값을 넣으면 이 자리에서 연결됩니다.')">연결 설정</button></div>
     </div>
+    <div class="section" style="text-align:center">
+      <div style="font-weight:800;font-size:18px">임대관리 v1.7</div>
+      <div class="muted" style="margin-top:6px">마지막 업데이트: 2026-08-08</div>
+    </div>
   </div>
 </div>
 
 <div class="nav">
   <div class="navin">
-    <button id="navHome" class="active" onclick="showHome()">임대목록</button>
-    <button id="navDetail" onclick="showLastDetail()">상세관리</button>
+    <button id="navHome" class="active" onclick="showDashboard()">홈</button>
+    <button id="navList" onclick="showRentalList()">임대목록</button>
+    <button id="navDetail" onclick="showRentalList()">상세관리</button>
     <button id="navSettings" onclick="showSettings()">설정·백업</button>
   </div>
 </div>
@@ -393,8 +398,12 @@ function showContracts(filter='all'){
  ${g.rooms.length?g.rooms.map(x=>{const unpaid=(x.r.arrears||[]).filter(a=>!a.paid).reduce((a,v)=>a+Number(v.amount||0),0);const d=daysTo(x.r.end);return `<div class="compactContract" onclick="openRoomFrom('contracts','${x.p.id}','${x.r.id}')"><div class="ccRoom">${esc(x.r.no)}호</div><div class="ccTenant">${esc(x.r.tenant||'공실')}</div><div class="ccInfo">보증금 ${moneyCompact(x.r.deposit)} · 월세 ${moneyCompact(x.r.rent)} · 만기 ${esc(x.r.end||'-')}${unpaid?` · <span style="color:var(--danger)">미납 ${moneyCompact(unpaid)}</span>`:''}${d!==null&&d>=0&&d<=180?` · D-${d}`:''}</div></div>`}).join(''):'<div class="muted" style="padding:12px 14px">등록된 호실 없음</div>'}</section>`).join(''):'<div class="muted" style="padding:18px 0">해당 계약이 없습니다.</div>'}</div>`;
  showView('contracts');
 }
-function showView(v){homeView.classList.toggle('hidden',v!=='home');contractsView.classList.toggle('hidden',v!=='contracts');detailView.classList.toggle('hidden',v!=='detail');settingsView.classList.toggle('hidden',v!=='settings');navHome.classList.toggle('active',v==='home');navDetail.classList.toggle('active',v==='detail');navSettings.classList.toggle('active',v==='settings')}
-function showHome(){renderHome();showView('home')} function showSettings(){showView('settings')} function showLastDetail(){if(current.roomId){renderDetail();showView('detail')}else showToast('먼저 호실을 선택하세요.')}
+function showView(v){homeView.classList.toggle('hidden',v!=='home');contractsView.classList.toggle('hidden',v!=='contracts');detailView.classList.toggle('hidden',v!=='detail');settingsView.classList.toggle('hidden',v!=='settings');navHome.classList.toggle('active',v==='home');navList.classList.remove('active');navDetail.classList.toggle('active',v==='detail');navSettings.classList.toggle('active',v==='settings')}
+function showHome(){showDashboard()}
+function showDashboard(){renderHome();showView('home');window.scrollTo({top:0,behavior:'smooth'})}
+function showRentalList(){renderHome();showView('home');navHome.classList.remove('active');navList.classList.add('active');setTimeout(()=>document.getElementById('rentalListAnchor')?.scrollIntoView({behavior:'smooth',block:'start'}),30)}
+function showSettings(){showView('settings');window.scrollTo({top:0,behavior:'smooth'})}
+function showLastDetail(){showRentalList()}
 function showToast(t){toast.textContent=t;toast.style.display='block';setTimeout(()=>toast.style.display='none',1800)}
 load();
 
