@@ -88,6 +88,18 @@ textarea{min-height:100px;resize:vertical}
 .startBtn{display:block;width:calc(100% - 28px);margin:4px 14px 22px;border:0;border-radius:14px;background:#1769e0;color:white;font-weight:800;padding:15px;font-size:17px}
 @media(max-width:520px){.onboardText h1{font-size:36px}.featureGrid{grid-template-columns:repeat(2,1fr)}}
 
+
+.stat{cursor:pointer}.stat:active,.dashboardSection.clickable:active{transform:scale(.99)}
+.dashboardSection.clickable{cursor:pointer}
+.contractOverview{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:12px}
+.contractToolbar{display:flex;gap:8px;overflow:auto;margin:10px 0 14px}
+.filterBtn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;white-space:nowrap}
+.filterBtn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.compactContract{display:grid;grid-template-columns:minmax(82px,.7fr) minmax(100px,1fr) minmax(180px,2fr);gap:10px;align-items:center;padding:12px 4px;border-top:1px solid var(--line);cursor:pointer}
+.compactContract:first-child{border-top:0}
+.ccRoom{font-weight:800}.ccTenant{font-weight:700}.ccInfo{font-size:13px;color:var(--muted);line-height:1.55}
+.backline{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+@media(max-width:560px){.compactContract{grid-template-columns:72px 1fr}.ccInfo{grid-column:1/-1;padding-left:0}}
 </style>
 </head>
 <body>
@@ -117,10 +129,10 @@ textarea{min-height:100px;resize:vertical}
     <div class="heroHome"><h2>임대관리</h2><p>오늘 필요한 임대 정보를 한눈에 확인하세요.</p></div>
     <div class="summaryTitle">오늘의 요약</div>
     <div class="stats">
-      <div class="stat"><div class="statIcon">🏢</div><span class="muted">전체 호실</span><b id="sRooms">0</b></div>
-      <div class="stat"><div class="statIcon">👥</div><span class="muted">계약중</span><b id="sActive">0</b></div>
-      <div class="stat"><div class="statIcon">💰</div><span class="muted">미납</span><b id="sLate">0</b></div>
-      <div class="stat"><div class="statIcon">🔔</div><span class="muted">만기임박</span><b id="sDue">0</b></div>
+      <div class="stat" onclick="showContracts('all')"><div class="statIcon">🏢</div><span class="muted">전체 호실</span><b id="sRooms">0</b></div>
+      <div class="stat" onclick="showContracts('active')"><div class="statIcon">👥</div><span class="muted">계약중</span><b id="sActive">0</b></div>
+      <div class="stat" onclick="showContracts('late')"><div class="statIcon">💰</div><span class="muted">미납</span><b id="sLate">0</b></div>
+      <div class="stat" onclick="showContracts('due')"><div class="statIcon">🔔</div><span class="muted">만기임박</span><b id="sDue">0</b></div>
     </div>
     
     <div id="dashboardExtras"></div>
@@ -129,6 +141,7 @@ textarea{min-height:100px;resize:vertical}
     <div id="propertyGrid" class="grid"></div>
   </div>
 
+  <div id="contractsView" class="hidden"></div>
   <div id="detailView" class="hidden"></div>
 
   <div id="settingsView" class="hidden">
@@ -141,8 +154,9 @@ textarea{min-height:100px;resize:vertical}
         </div>
       </div>
       <div class="actions">
-        <button id="installBtn" class="btn install hidden" onclick="installApp()">홈 화면에 설치</button>
+        <button id="installBtn" class="btn install" onclick="installApp()">📲 홈 화면에 설치</button>
       </div>
+      <div class="muted" style="margin-top:10px">버튼을 누르면 설치 창을 열고, 지원되지 않을 때는 Chrome 메뉴 설치 방법을 안내합니다.</div>
       <ol class="install-steps" id="manualInstall">
         <li>Chrome 메뉴를 엽니다.</li>
         <li>‘홈 화면에 추가’ 또는 ‘앱 설치’를 선택합니다.</li>
@@ -236,7 +250,7 @@ function renderHome(){
  const memoItems=all.flatMap(x=>(x.r.memos||[]).map(m=>({...x,m}))).sort((a,b)=>(b.m.date||'').localeCompare(a.m.date||'')).slice(0,3);
  const lateItems=all.flatMap(x=>(x.r.arrears||[]).filter(a=>!a.paid).map(a=>({...x,a}))).slice(0,3);
  dashboardExtras.innerHTML=`
-  <div class="dashboardSection"><h2>계약 만기 예정</h2>${dueItems.length?dueItems.map(x=>`<div class="dashItem"><div><b>${esc(x.r.tenant)} (${esc(x.r.no)}호)</b><div class="muted">${x.r.end} 만기</div></div><b>D-${daysTo(x.r.end)}</b></div>`).join(''):'<div class="muted">다가오는 만기 없음</div>'}</div>
+  <div class="dashboardSection clickable" onclick="showContracts('due')"><h2>계약 만기 예정</h2>${dueItems.length?dueItems.map(x=>`<div class="dashItem" onclick="event.stopPropagation();openRoom('${x.p.id}','${x.r.id}')"><div><b>${esc(x.r.tenant)} (${esc(x.r.no)}호)</b><div class="muted">${x.r.end} 만기</div></div><b>D-${daysTo(x.r.end)}</b></div>`).join(''):'<div class="muted">다가오는 만기 없음</div>'}</div>
   <div class="dashboardSection"><h2>최근 메모</h2>${memoItems.length?memoItems.map(x=>`<div class="dashItem"><div><b>${esc(x.m.date||'')}</b><div>${esc(x.m.text||'')}</div></div></div>`).join(''):'<div class="muted">최근 메모 없음</div>'}</div>
   <div class="dashboardSection"><h2>최근 미납월세</h2>${lateItems.length?lateItems.map(x=>`<div class="dashItem"><div><b>${esc(x.r.tenant||x.r.no+'호')}</b><div class="muted">${esc(x.a.month)} · ${Number(x.a.amount||0).toLocaleString()}원</div></div><span class="badge danger">미납</span></div>`).join(''):'<div class="muted">미납 내역 없음</div>'}</div>`;
 }
@@ -344,7 +358,46 @@ function saveBaseline(){localStorage.setItem(BASEKEY,JSON.stringify(state));show
 function loadBaseline(){const x=localStorage.getItem(BASEKEY);if(!x){alert('저장된 기본자료가 없습니다.');return}if(!confirm('현재 자료를 기본자료로 덮어쓸까요?'))return;state=JSON.parse(x);save();renderHome();showHome()}
 function downloadBackup(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`임대관리_백업_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
 function importBackup(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const obj=JSON.parse(rd.result);if(!obj.properties)throw 0;if(!confirm('현재 자료를 백업파일 내용으로 바꿀까요?'))return;state=obj;save();renderHome();showHome();showToast('백업을 불러왔습니다.')}catch(_){alert('올바른 백업파일이 아닙니다.')}};rd.readAsText(f)}
-function showView(v){homeView.classList.toggle('hidden',v!=='home');detailView.classList.toggle('hidden',v!=='detail');settingsView.classList.toggle('hidden',v!=='settings');navHome.classList.toggle('active',v==='home');navDetail.classList.toggle('active',v==='detail');navSettings.classList.toggle('active',v==='settings')}
+
+let contractFilter='all';
+function moneyCompact(v){
+ const n=Number(String(v||0).replace(/,/g,''));
+ if(!n)return '-';
+ if(n>=10000 && n%10000===0)return (n/10000).toLocaleString()+'만원';
+ return n.toLocaleString()+'원';
+}
+function showContracts(filter='all'){
+ contractFilter=filter;
+ const all=state.properties.flatMap(p=>p.rooms.map(r=>({p,r})));
+ let rows=all;
+ if(filter==='active') rows=all.filter(x=>x.r.tenant);
+ if(filter==='late') rows=all.filter(x=>(x.r.arrears||[]).some(a=>!a.paid));
+ if(filter==='due') rows=all.filter(x=>{const d=daysTo(x.r.end);return x.r.tenant&&d!==null&&d>=0&&d<=180});
+ rows=rows.slice().sort((a,b)=>{
+   if(filter==='due') return (daysTo(a.r.end)??99999)-(daysTo(b.r.end)??99999);
+   return String(a.r.no).localeCompare(String(b.r.no),'ko',{numeric:true});
+ });
+ const labels={all:'전체',active:'계약중',late:'미납',due:'만기임박'};
+ contractsView.innerHTML=`
+ <div class="backline"><button class="btn small" onclick="showHome()">← 홈</button><h2 style="margin:0">전체 계약 현황</h2></div>
+ <div class="contractOverview">
+  <div class="muted">저장된 계약을 한 화면에서 간단히 확인합니다.</div>
+  <div class="contractToolbar">
+   ${['all','active','late','due'].map(k=>`<button class="filterBtn ${filter===k?'active':''}" onclick="showContracts('${k}')">${labels[k]}</button>`).join('')}
+  </div>
+  <div>${rows.length?rows.map(x=>{
+    const unpaid=(x.r.arrears||[]).filter(a=>!a.paid).reduce((a,v)=>a+Number(v.amount||0),0);
+    const d=daysTo(x.r.end);
+    return `<div class="compactContract" onclick="openRoom('${x.p.id}','${x.r.id}')">
+      <div class="ccRoom">${esc(x.r.no)}호</div>
+      <div class="ccTenant">${esc(x.r.tenant||'공실')}</div>
+      <div class="ccInfo">보증금 ${moneyCompact(x.r.deposit)} · 월세 ${moneyCompact(x.r.rent)} · 만기 ${esc(x.r.end||'-')}${unpaid?` · <span style="color:var(--danger)">미납 ${moneyCompact(unpaid)}</span>`:''}${d!==null&&d>=0&&d<=180?` · D-${d}`:''}</div>
+    </div>`;
+  }).join(''):'<div class="muted" style="padding:18px 0">해당 계약이 없습니다.</div>'}</div>
+ </div>`;
+ showView('contracts');
+}
+function showView(v){homeView.classList.toggle('hidden',v!=='home');contractsView.classList.toggle('hidden',v!=='contracts');detailView.classList.toggle('hidden',v!=='detail');settingsView.classList.toggle('hidden',v!=='settings');navHome.classList.toggle('active',v==='home');navDetail.classList.toggle('active',v==='detail');navSettings.classList.toggle('active',v==='settings')}
 function showHome(){renderHome();showView('home')} function showSettings(){showView('settings')} function showLastDetail(){if(current.roomId){renderDetail();showView('detail')}else showToast('먼저 호실을 선택하세요.')}
 function showToast(t){toast.textContent=t;toast.style.display='block';setTimeout(()=>toast.style.display='none',1800)}
 load();
@@ -368,12 +421,15 @@ window.addEventListener('beforeinstallprompt',e=>{
   if(b) b.classList.remove('hidden');
 });
 async function installApp(){
-  if(!deferredInstallPrompt){showToast('브라우저 메뉴의 홈 화면에 추가를 이용하세요.');return}
+  if(!deferredInstallPrompt){
+    alert("설치 창이 바로 뜨지 않으면 Chrome 오른쪽 위 ⋮ 메뉴 → ‘홈 화면에 추가’ 또는 ‘앱 설치’를 선택하세요.");
+    return;
+  }
   deferredInstallPrompt.prompt();
   await deferredInstallPrompt.userChoice;
   deferredInstallPrompt=null;
   const b=document.getElementById('installBtn');
-  if(b) b.classList.add('hidden');
+  if(b) b.classList.remove('hidden');
 }
 window.addEventListener('appinstalled',()=>showToast('임대관리 앱 설치가 완료되었습니다.'));
 if('serviceWorker' in navigator){
