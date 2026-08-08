@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>임대관리</title>
+<meta name="theme-color" content="#ffffff"/>
+<style>
+:root{
+  --bg:#f6f7f9;--card:#fff;--line:#e5e7eb;--text:#171717;--muted:#6b7280;
+  --accent:#2f6fed;--danger:#d64545;--warn:#b7791f;--ok:#2f855a;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text)}
+button,input,select,textarea{font:inherit}
+.wrap{max-width:980px;margin:0 auto;padding:18px 14px 90px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+h1{font-size:26px;margin:0}.sub{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0 20px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.stat b{display:block;font-size:22px;margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+.card h3{margin:0 0 6px;font-size:18px}.muted{color:var(--muted);font-size:13px}
+.rooms{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.room{border:1px solid var(--line);background:#fafafa;border-radius:999px;padding:9px 12px;cursor:pointer}
+.room.has{background:#f0f5ff;border-color:#c9d8ff}
+.room.due{background:#fff7e8;border-color:#f1cf8d}
+.room.late{background:#fff0f0;border-color:#f0b5b5}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.btn{border:1px solid var(--line);background:white;border-radius:12px;padding:10px 12px;cursor:pointer}
+.btn.primary{background:var(--accent);color:white;border-color:var(--accent)}
+.btn.danger{color:var(--danger)} .btn.small{padding:7px 10px;font-size:13px}
+.panel{margin-top:16px}
+.section{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.section h2{font-size:18px;margin:0 0 12px}
+.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px;background:white}
+textarea{min-height:100px;resize:vertical}
+.full{grid-column:1/-1}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}.right{text-align:right}
+.badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;background:#eef2f7}
+.badge.ok{background:#eaf7ef;color:var(--ok)} .badge.warn{background:#fff4dd;color:var(--warn)} .badge.danger{background:#fdeaea;color:var(--danger)}
+.hidden{display:none!important}
+.nav{position:fixed;left:0;right:0;bottom:0;background:white;border-top:1px solid var(--line);display:flex;justify-content:center;z-index:10}
+.navin{width:min(980px,100%);display:grid;grid-template-columns:repeat(3,1fr)}
+.nav button{border:0;background:white;padding:14px 8px;cursor:pointer}.nav button.active{color:var(--accent);font-weight:700}
+.toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);background:#111;color:white;padding:10px 14px;border-radius:12px;display:none;z-index:20}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>임대관리</h1><div class="sub">계약 · 월세 · 만기 · 수선 · 계약서 · 메모</div></div>
+    <button class="btn primary" onclick="openPropertyModal()">＋ 임대물건</button>
+  </div>
+
+  <div id="homeView">
+    <div class="stats">
+      <div class="stat"><span class="muted">전체 호실</span><b id="sRooms">0</b></div>
+      <div class="stat"><span class="muted">계약중</span><b id="sActive">0</b></div>
+      <div class="stat"><span class="muted">미납</span><b id="sLate">0</b></div>
+      <div class="stat"><span class="muted">만기임박</span><b id="sDue">0</b></div>
+    </div>
+    <div id="propertyGrid" class="grid"></div>
+  </div>
+
+  <div id="detailView" class="hidden"></div>
+
+  <div id="settingsView" class="hidden">
+    <div class="section">
+      <h2>기본자료</h2>
+      <p class="muted">현재 상태를 기본자료로 저장하거나, 저장된 기본자료로 되돌립니다.</p>
+      <div class="actions">
+        <button class="btn" onclick="saveBaseline()">기본자료로 저장</button>
+        <button class="btn" onclick="loadBaseline()">기본자료 불러오기</button>
+      </div>
+    </div>
+    <div class="section">
+      <h2>백업 · 복원</h2>
+      <div class="actions">
+        <button class="btn" onclick="downloadBackup()">전체 백업 저장</button>
+        <label class="btn" style="cursor:pointer">백업 불러오기<input type="file" accept=".json" hidden onchange="importBackup(event)"/></label>
+      </div>
+    </div>
+    <div class="section">
+      <h2>클라우드 동기화</h2>
+      <p class="muted">Firebase 전용 프로젝트 연결용 자리입니다. 현재 버전은 로컬 저장과 백업이 우선 동작합니다.</p>
+      <div class="row"><div>상태</div><div><span class="badge">미연결</span></div></div>
+      <div class="actions"><button class="btn" onclick="showToast('Firebase 설정값을 넣으면 이 자리에서 연결됩니다.')">연결 설정</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="navin">
+    <button id="navHome" class="active" onclick="showHome()">임대목록</button>
+    <button id="navDetail" onclick="showLastDetail()">상세관리</button>
+    <button id="navSettings" onclick="showSettings()">설정·백업</button>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+const KEY='rentalManagerV1';
+const BASEKEY='rentalManagerBaselineV1';
+let state;
+let current={propertyId:null, roomId:null};
+
+const seed = {
+  version:1,
+  properties:[
+    {id:'p1', name:'다가구주택', type:'주택', rooms:['201','202','203','301','302','303'].map(n=>makeRoom('p1-'+n,n,'주택'))},
+    {id:'p2', name:'다가구주택상가', type:'상가', rooms:['101','102','103','104'].map(n=>makeRoom('p2-'+n,n,'상가'))},
+    {id:'p3', name:'근생상가', type:'상가', rooms:[makeRoom('p3-107','107','상가')]}
+  ]
+};
+function makeRoom(id,no,type){
+ return {id,no,type,tenant:'',phone:'',deposit:'',rent:'',start:'',end:'',renewalClaim:'미행사',renewalClaimDate:'',
+ increaseBase:'',increaseRate:5,increaseAmount:'',increaseDate:'',noticeDone:false,noticeDate:'',noticeMethod:'문자',
+ arrears:[], repairs:[], contracts:[], memo:'', updatedAt:Date.now()};
+}
+function load(){ try{state=JSON.parse(localStorage.getItem(KEY))||structuredClone(seed)}catch(e){state=structuredClone(seed)}; save(); renderHome();}
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function uid(p='id'){return p+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function daysTo(date){ if(!date)return null; const a=new Date();a.setHours(0,0,0,0); const b=new Date(date+'T00:00:00'); return Math.ceil((b-a)/86400000)}
+function roomStatus(r){const d=daysTo(r.end); if(r.arrears?.some(x=>!x.paid)) return ['미납','late']; if(d!==null && d>=0 && d<=180)return ['만기임박','due']; if(r.tenant)return ['정상','has']; return ['공실',''];}
+function renderHome(){
+ const grid=document.getElementById('propertyGrid'); grid.innerHTML='';
+ let rooms=0,active=0,late=0,due=0;
+ state.properties.forEach(p=>{
+   const c=document.createElement('div'); c.className='card';
+   const rs=p.rooms.map(r=>{rooms++; if(r.tenant)active++; const st=roomStatus(r); if(st[1]=='late')late++; if(st[1]=='due')due++; return `<button class="room ${st[1]}" onclick="openRoom('${p.id}','${r.id}')">${esc(r.no)}호${r.tenant?` · ${esc(r.tenant)}`:''}</button>`}).join('');
+   c.innerHTML=`<h3>${esc(p.name)}</h3><div class="muted">${esc(p.type)} · ${p.rooms.length}개 호실</div><div class="rooms">${rs}</div>
+   <div class="actions"><button class="btn small" onclick="addRoom('${p.id}')">＋ 호실</button><button class="btn small" onclick="editProperty('${p.id}')">수정</button><button class="btn small danger" onclick="deleteProperty('${p.id}')">삭제</button></div>`;
+   grid.appendChild(c);
+ });
+ sRooms.textContent=rooms;sActive.textContent=active;sLate.textContent=late;sDue.textContent=due;
+}
+function openRoom(pid,rid){current={propertyId:pid,roomId:rid}; renderDetail(); showView('detail')}
+function getPR(){const p=state.properties.find(x=>x.id==current.propertyId); return [p,p?.rooms.find(x=>x.id==current.roomId)]}
+function renderDetail(){
+ const [p,r]=getPR(); if(!p||!r)return;
+ const d=daysTo(r.end);
+ const noticeText = r.type==='주택' ? '관리기준: 만기 6개월 전 ~ 2개월 전' : '관리기준: 만기 6개월 전 ~ 1개월 전';
+ const inc = r.rent? Math.round(Number(String(r.rent).replace(/,/g,''))*1.05):'';
+ detailView.innerHTML=`
+ <div class="section">
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+   <div><h2>${esc(p.name)} · ${esc(r.no)}호</h2><div class="muted">${esc(r.type)} ${d!==null?`· 만기 D${d>=0?'-'+d:'+'+Math.abs(d)}`:''}</div></div>
+   <div class="actions"><button class="btn small" onclick="editRoomNo()">호실수정</button><button class="btn small danger" onclick="deleteRoom()">호실삭제</button></div>
+  </div>
+ </div>
+ <div class="section"><h2>기본정보</h2><div class="formgrid">
+   ${field('세입자','tenant',r.tenant)} ${field('연락처','phone',r.phone)}
+   ${field('보증금','deposit',r.deposit,'number')} ${field('월차임','rent',r.rent,'number')}
+   ${field('임대차 시작일','start',r.start,'date')} ${field('만기일','end',r.end,'date')}
+ </div><div class="actions"><button class="btn primary" onclick="saveBasic()">저장</button></div></div>
+ <div class="section"><h2>계약관리</h2>
+   <div class="formgrid">
+    <div><label>계약갱신청구권 행사 여부</label><select id="renewalClaim"><option ${r.renewalClaim==='미행사'?'selected':''}>미행사</option><option ${r.renewalClaim==='행사'?'selected':''}>행사</option><option ${r.renewalClaim==='해당없음'?'selected':''}>해당없음</option></select></div>
+    ${field('행사일자','renewalClaimDate',r.renewalClaimDate,'date')}
+    <div><label>월차임 5% 증액 기준</label><input value="${esc(r.rent||'')}" disabled></div>
+    <div><label>5% 증액 후 월차임</label><input value="${inc||''}" disabled></div>
+    ${field('실제 증액일','increaseDate',r.increaseDate,'date')}
+    <div class="full"><label>만기통보</label><div class="muted">${noticeText}</div></div>
+    <div><label>통보 여부</label><select id="noticeDone"><option value="false" ${!r.noticeDone?'selected':''}>미통보</option><option value="true" ${r.noticeDone?'selected':''}>통보완료</option></select></div>
+    ${field('통보일','noticeDate',r.noticeDate,'date')}
+    <div><label>통보방법</label><select id="noticeMethod">${['문자','전화','내용증명','기타'].map(x=>`<option ${r.noticeMethod===x?'selected':''}>${x}</option>`).join('')}</select></div>
+   </div><div class="actions"><button class="btn primary" onclick="saveContract()">저장</button></div>
+ </div>
+ <div class="section"><h2>미납월세</h2>
+   <div id="arrearsList">${(r.arrears||[]).map(a=>itemRow(`${a.month||''} · ${Number(a.amount||0).toLocaleString()}원`,a.paid?'납부완료':'미납',`toggleArrear('${a.id}')`,`editArrear('${a.id}')`,`deleteArrear('${a.id}')`)).join('')||'<div class="muted">등록된 미납내역 없음</div>'}</div>
+   <div class="actions"><button class="btn" onclick="addArrear()">＋ 미납월세 추가</button></div>
+ </div>
+ <div class="section"><h2>수선비</h2>
+   ${(r.repairs||[]).map(x=>itemRow(`${x.date||''} · ${esc(x.title||'수선')}`,`${Number(x.amount||0).toLocaleString()}원`,``,`editRepair('${x.id}')`,`deleteRepair('${x.id}')`)).join('')||'<div class="muted">등록된 수선내역 없음</div>'}
+   <div class="actions"><button class="btn" onclick="addRepair()">＋ 수선내역 추가</button></div>
+ </div>
+ <div class="section"><h2>계약서 사본</h2>
+   ${(r.contracts||[]).map(x=>itemRow(esc(x.name),x.date||'',`openContract('${x.id}')`,`renameContract('${x.id}')`,`deleteContract('${x.id}')`)).join('')||'<div class="muted">저장된 계약서 없음</div>'}
+   <div class="actions"><label class="btn" style="cursor:pointer">＋ 계약서 파일<input type="file" accept="image/*,.pdf" hidden onchange="addContractFile(event)"/></label></div>
+   <p class="muted">브라우저 저장공간 한계 때문에 큰 파일은 백업 JSON에 직접 포함되지 않을 수 있습니다. Firebase 연결 시 파일 저장소로 분리합니다.</p>
+ </div>
+ <div class="section"><h2>메모</h2><textarea id="memo">${esc(r.memo||'')}</textarea><div class="actions"><button class="btn primary" onclick="saveMemo()">저장</button><button class="btn danger" onclick="clearMemo()">삭제</button></div></div>`;
+}
+function field(label,id,val,type='text'){return `<div><label>${label}</label><input id="${id}" type="${type}" value="${esc(val??'')}"></div>`}
+function itemRow(a,b,main,edit,del){return `<div class="row"><div>${a}<div class="muted">${b}</div></div><div class="actions">${main?`<button class="btn small" onclick="${main}">상태</button>`:''}<button class="btn small" onclick="${edit}">수정</button><button class="btn small danger" onclick="${del}">삭제</button></div></div>`}
+function saveBasic(){const [p,r]=getPR();['tenant','phone','deposit','rent','start','end'].forEach(k=>r[k]=document.getElementById(k).value);r.updatedAt=Date.now();save();renderDetail();renderHome();showToast('저장했습니다.')}
+function saveContract(){const [p,r]=getPR();r.renewalClaim=renewalClaim.value;r.renewalClaimDate=renewalClaimDate.value;r.increaseDate=increaseDate.value;r.noticeDone=noticeDone.value==='true';r.noticeDate=noticeDate.value;r.noticeMethod=noticeMethod.value;r.updatedAt=Date.now();save();renderDetail();showToast('계약관리 내용을 저장했습니다.')}
+function saveMemo(){const [p,r]=getPR();r.memo=memo.value;r.updatedAt=Date.now();save();showToast('메모를 저장했습니다.')}
+function clearMemo(){if(!confirm('메모를 삭제할까요?'))return;memo.value='';saveMemo()}
+function addArrear(){const [p,r]=getPR();const month=prompt('미납 월 (예: 2026-08)'); if(!month)return; const amount=prompt('미납 금액'); if(amount===null)return;r.arrears.push({id:uid('a'),month,amount:Number(amount||0),paid:false});save();renderDetail();renderHome()}
+function editArrear(id){const [p,r]=getPR(),a=r.arrears.find(x=>x.id==id);const m=prompt('미납 월',a.month);if(m===null)return;const amt=prompt('금액',a.amount);if(amt===null)return;a.month=m;a.amount=Number(amt||0);save();renderDetail()}
+function deleteArrear(id){const [p,r]=getPR();if(!confirm('이 미납내역을 삭제할까요?'))return;r.arrears=r.arrears.filter(x=>x.id!=id);save();renderDetail();renderHome()}
+function toggleArrear(id){const [p,r]=getPR(),a=r.arrears.find(x=>x.id==id);a.paid=!a.paid;save();renderDetail();renderHome()}
+function addRepair(){const [p,r]=getPR();const title=prompt('수선 내용');if(!title)return;const amount=prompt('수선비');if(amount===null)return;const date=prompt('날짜 (YYYY-MM-DD)',new Date().toISOString().slice(0,10));r.repairs.push({id:uid('rp'),title,amount:Number(amount||0),date});save();renderDetail()}
+function editRepair(id){const [p,r]=getPR(),x=r.repairs.find(v=>v.id==id);const t=prompt('수선 내용',x.title);if(t===null)return;const a=prompt('수선비',x.amount);if(a===null)return;const d=prompt('날짜',x.date);x.title=t;x.amount=Number(a||0);x.date=d;save();renderDetail()}
+function deleteRepair(id){const [p,r]=getPR();if(!confirm('이 수선내역을 삭제할까요?'))return;r.repairs=r.repairs.filter(x=>x.id!=id);save();renderDetail()}
+function addContractFile(e){const f=e.target.files[0];if(!f)return; if(f.size>2*1024*1024){alert('현재 로컬 버전은 계약서 파일 2MB 이하를 권장합니다. 클라우드 연결 후 큰 파일 저장이 가능합니다.');}
+ const reader=new FileReader(); reader.onload=()=>{const [p,r]=getPR();r.contracts.push({id:uid('c'),name:f.name,date:new Date().toISOString().slice(0,10),data:reader.result,type:f.type});save();renderDetail()};reader.readAsDataURL(f)}
+function openContract(id){const [p,r]=getPR(),x=r.contracts.find(v=>v.id==id);if(x?.data)window.open(x.data,'_blank')}
+function renameContract(id){const [p,r]=getPR(),x=r.contracts.find(v=>v.id==id);const n=prompt('파일명',x.name);if(n===null)return;x.name=n;save();renderDetail()}
+function deleteContract(id){const [p,r]=getPR();if(!confirm('이 계약서 사본을 삭제할까요?'))return;r.contracts=r.contracts.filter(x=>x.id!=id);save();renderDetail()}
+function addRoom(pid){const p=state.properties.find(x=>x.id==pid);const no=prompt('호실 번호');if(!no)return;p.rooms.push(makeRoom(uid('r'),no,p.type));save();renderHome()}
+function editRoomNo(){const [p,r]=getPR();const no=prompt('호실 번호',r.no);if(no===null||!no.trim())return;r.no=no.trim();save();renderDetail();renderHome()}
+function deleteRoom(){const [p,r]=getPR();if(!confirm(`${r.no}호와 그 안의 모든 자료를 삭제할까요?`))return;p.rooms=p.rooms.filter(x=>x.id!=r.id);save();showHome();renderHome()}
+function openPropertyModal(){const name=prompt('임대물건 이름');if(!name)return;const type=prompt('구분을 입력하세요: 주택 또는 상가','주택');if(type===null)return;state.properties.push({id:uid('p'),name,type:type.includes('상가')?'상가':'주택',rooms:[]});save();renderHome()}
+function editProperty(id){const p=state.properties.find(x=>x.id==id);const n=prompt('임대물건 이름',p.name);if(n===null)return;const t=prompt('구분: 주택 또는 상가',p.type);if(t===null)return;p.name=n;p.type=t.includes('상가')?'상가':'주택';p.rooms.forEach(r=>r.type=p.type);save();renderHome()}
+function deleteProperty(id){const p=state.properties.find(x=>x.id==id);if(!confirm(`${p.name}과 모든 호실 자료를 삭제할까요?`))return;state.properties=state.properties.filter(x=>x.id!=id);save();renderHome()}
+function saveBaseline(){localStorage.setItem(BASEKEY,JSON.stringify(state));showToast('현재 상태를 기본자료로 저장했습니다.')}
+function loadBaseline(){const x=localStorage.getItem(BASEKEY);if(!x){alert('저장된 기본자료가 없습니다.');return}if(!confirm('현재 자료를 기본자료로 덮어쓸까요?'))return;state=JSON.parse(x);save();renderHome();showHome()}
+function downloadBackup(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`임대관리_백업_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
+function importBackup(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const obj=JSON.parse(rd.result);if(!obj.properties)throw 0;if(!confirm('현재 자료를 백업파일 내용으로 바꿀까요?'))return;state=obj;save();renderHome();showHome();showToast('백업을 불러왔습니다.')}catch(_){alert('올바른 백업파일이 아닙니다.')}};rd.readAsText(f)}
+function showView(v){homeView.classList.toggle('hidden',v!=='home');detailView.classList.toggle('hidden',v!=='detail');settingsView.classList.toggle('hidden',v!=='settings');navHome.classList.toggle('active',v==='home');navDetail.classList.toggle('active',v==='detail');navSettings.classList.toggle('active',v==='settings')}
+function showHome(){renderHome();showView('home')} function showSettings(){showView('settings')} function showLastDetail(){if(current.roomId){renderDetail();showView('detail')}else showToast('먼저 호실을 선택하세요.')}
+function showToast(t){toast.textContent=t;toast.style.display='block';setTimeout(()=>toast.style.display='none',1800)}
+load();
+</script>
+</body>
+</html>
