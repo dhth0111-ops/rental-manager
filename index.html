@@ -4,7 +4,13 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>임대관리</title>
-<meta name="theme-color" content="#ffffff"/>
+<meta name="theme-color" content="#f7e7eb"/>
+<link rel="manifest" href="./manifest.json"/>
+<link rel="apple-touch-icon" href="./apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="임대관리"/>
+
 <style>
 :root{
   --bg:#f6f7f9;--card:#fff;--line:#e5e7eb;--text:#171717;--muted:#6b7280;
@@ -47,8 +53,20 @@ textarea{min-height:100px;resize:vertical}
 .nav{position:fixed;left:0;right:0;bottom:0;background:white;border-top:1px solid var(--line);display:flex;justify-content:center;z-index:10}
 .navin{width:min(980px,100%);display:grid;grid-template-columns:repeat(3,1fr)}
 .nav button{border:0;background:white;padding:14px 8px;cursor:pointer}.nav button.active{color:var(--accent);font-weight:700}
+.total{font-weight:800;font-size:18px}.total.danger{color:var(--danger)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;display:flex;align-items:center;justify-content:center;padding:18px}
+.modalbox{position:relative;width:min(980px,100%);height:min(92vh,100%);background:#111;border-radius:16px;overflow:auto;display:flex;align-items:center;justify-content:center}
+.modalbox img{max-width:100%;height:auto;display:block;cursor:zoom-in}.modalbox iframe{width:100%;height:100%;border:0;background:white}
+.closemodal{position:fixed;right:24px;top:20px;z-index:55;border:0;border-radius:999px;background:white;padding:10px 14px;font-size:20px}
 .toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);background:#111;color:white;padding:10px 14px;border-radius:12px;display:none;z-index:20}
 @media(max-width:760px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}}
+
+.install-card{background:linear-gradient(135deg,#fff8fa,#f7e7eb);border:1px solid #edd5dc;border-radius:20px;padding:18px;margin-bottom:12px}
+.install-head{display:flex;gap:14px;align-items:center}
+.install-icon{width:68px;height:68px;border-radius:18px;box-shadow:0 8px 22px rgba(80,45,60,.12)}
+.install-card h2{margin:0 0 4px;font-size:20px}
+.install-steps{margin:14px 0 0;padding-left:20px;color:var(--muted);line-height:1.7;font-size:13px}
+.btn.install{background:#e7819a;color:white;border-color:#e7819a;font-weight:700}
 </style>
 </head>
 <body>
@@ -71,6 +89,23 @@ textarea{min-height:100px;resize:vertical}
   <div id="detailView" class="hidden"></div>
 
   <div id="settingsView" class="hidden">
+    <div class="install-card">
+      <div class="install-head">
+        <img class="install-icon" src="./icon-192.png" alt="임대관리 앱 아이콘">
+        <div>
+          <h2>임대관리 앱 설치</h2>
+          <div class="muted">홈 화면에서 바로 열고 앱처럼 사용합니다.</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="installBtn" class="btn install hidden" onclick="installApp()">홈 화면에 설치</button>
+      </div>
+      <ol class="install-steps" id="manualInstall">
+        <li>Chrome 메뉴를 엽니다.</li>
+        <li>‘홈 화면에 추가’ 또는 ‘앱 설치’를 선택합니다.</li>
+        <li>임대관리 아이콘을 확인하고 설치합니다.</li>
+      </ol>
+    </div>
     <div class="section">
       <h2>기본자료</h2>
       <p class="muted">현재 상태를 기본자료로 저장하거나, 저장된 기본자료로 되돌립니다.</p>
@@ -102,7 +137,7 @@ textarea{min-height:100px;resize:vertical}
     <button id="navSettings" onclick="showSettings()">설정·백업</button>
   </div>
 </div>
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast"></div><div id="contractModal" class="modal hidden" onclick="closeContractModal(event)"><button class="closemodal" onclick="closeContractModal(event,true)">✕</button><div id="contractModalBox" class="modalbox"></div></div>
 
 <script>
 const KEY='rentalManagerV1';
@@ -123,7 +158,16 @@ function makeRoom(id,no,type){
  increaseBase:'',increaseRate:5,increaseAmount:'',increaseDate:'',noticeDone:false,noticeDate:'',noticeMethod:'문자',
  arrears:[], repairs:[], contracts:[], memo:'', updatedAt:Date.now()};
 }
-function load(){ try{state=JSON.parse(localStorage.getItem(KEY))||structuredClone(seed)}catch(e){state=structuredClone(seed)}; save(); renderHome();}
+function load(){
+ try{state=JSON.parse(localStorage.getItem(KEY))||structuredClone(seed)}catch(e){state=structuredClone(seed)}
+ state.properties.forEach(p=>p.rooms.forEach(r=>{
+   if(!r.contacts) r.contacts = r.phone ? [{id:uid('ct'),label:'연락처',value:r.phone}] : [];
+   if(!r.memos) r.memos = r.memo ? [{id:uid('m'),date:new Date().toISOString().slice(0,10),text:r.memo}] : [];
+   if(r.increaseBase===undefined) r.increaseBase='';
+   if(r.increaseAmount===undefined) r.increaseAmount='';
+ }));
+ save(); renderHome();
+}
 function save(){localStorage.setItem(KEY,JSON.stringify(state))}
 function uid(p='id'){return p+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -156,7 +200,7 @@ function renderDetail(){
   </div>
  </div>
  <div class="section"><h2>기본정보</h2><div class="formgrid">
-   ${field('세입자','tenant',r.tenant)} ${field('연락처','phone',r.phone)}
+   ${field('세입자','tenant',r.tenant)} <div><label>연락처</label><div class="muted">아래 연락처 목록에서 여러 개 저장</div></div>
    ${field('보증금','deposit',r.deposit,'number')} ${field('월차임','rent',r.rent,'number')}
    ${field('임대차 시작일','start',r.start,'date')} ${field('만기일','end',r.end,'date')}
  </div><div class="actions"><button class="btn primary" onclick="saveBasic()">저장</button></div></div>
@@ -164,16 +208,20 @@ function renderDetail(){
    <div class="formgrid">
     <div><label>계약갱신청구권 행사 여부</label><select id="renewalClaim"><option ${r.renewalClaim==='미행사'?'selected':''}>미행사</option><option ${r.renewalClaim==='행사'?'selected':''}>행사</option><option ${r.renewalClaim==='해당없음'?'selected':''}>해당없음</option></select></div>
     ${field('행사일자','renewalClaimDate',r.renewalClaimDate,'date')}
-    <div><label>월차임 5% 증액 기준</label><input value="${esc(r.rent||'')}" disabled></div>
-    <div><label>5% 증액 후 월차임</label><input value="${inc||''}" disabled></div>
+    ${field('월차임 5% 증액 기준','increaseBase',r.increaseBase||r.rent,'number')}
+    <div><label>5% 증액 후 월차임</label><input id="increaseAmount" type="number" value="${esc(r.increaseAmount||inc||'')}"></div>
     ${field('실제 증액일','increaseDate',r.increaseDate,'date')}
     <div class="full"><label>만기통보</label><div class="muted">${noticeText}</div></div>
     <div><label>통보 여부</label><select id="noticeDone"><option value="false" ${!r.noticeDone?'selected':''}>미통보</option><option value="true" ${r.noticeDone?'selected':''}>통보완료</option></select></div>
     ${field('통보일','noticeDate',r.noticeDate,'date')}
-    <div><label>통보방법</label><select id="noticeMethod">${['문자','전화','내용증명','기타'].map(x=>`<option ${r.noticeMethod===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div><label>통보방법</label><select id="noticeMethod">${['문자','카톡','전화','내용증명','기타'].map(x=>`<option ${r.noticeMethod===x?'selected':''}>${x}</option>`).join('')}</select></div>
    </div><div class="actions"><button class="btn primary" onclick="saveContract()">저장</button></div>
  </div>
- <div class="section"><h2>미납월세</h2>
+ <div class="section"><h2>연락처</h2>
+   ${(r.contacts||[]).map(x=>itemRow(`${esc(x.label||'연락처')} · ${esc(x.value||'')}`,'',``,`editContact('${x.id}')`,`deleteContact('${x.id}')`)).join('')||'<div class="muted">등록된 연락처 없음</div>'}
+   <div class="actions"><button class="btn" onclick="addContact()">＋ 연락처 추가</button></div>
+ </div>
+ <div class="section"><h2>미납월세 <span class="total danger" style="float:right">총 미납액 ${Number((r.arrears||[]).filter(x=>!x.paid).reduce((a,x)=>a+Number(x.amount||0),0)).toLocaleString()}원</span></h2>
    <div id="arrearsList">${(r.arrears||[]).map(a=>itemRow(`${a.month||''} · ${Number(a.amount||0).toLocaleString()}원`,a.paid?'납부완료':'미납',`toggleArrear('${a.id}')`,`editArrear('${a.id}')`,`deleteArrear('${a.id}')`)).join('')||'<div class="muted">등록된 미납내역 없음</div>'}</div>
    <div class="actions"><button class="btn" onclick="addArrear()">＋ 미납월세 추가</button></div>
  </div>
@@ -186,12 +234,16 @@ function renderDetail(){
    <div class="actions"><label class="btn" style="cursor:pointer">＋ 계약서 파일<input type="file" accept="image/*,.pdf" hidden onchange="addContractFile(event)"/></label></div>
    <p class="muted">브라우저 저장공간 한계 때문에 큰 파일은 백업 JSON에 직접 포함되지 않을 수 있습니다. Firebase 연결 시 파일 저장소로 분리합니다.</p>
  </div>
- <div class="section"><h2>메모</h2><textarea id="memo">${esc(r.memo||'')}</textarea><div class="actions"><button class="btn primary" onclick="saveMemo()">저장</button><button class="btn danger" onclick="clearMemo()">삭제</button></div></div>`;
+ <div class="section"><h2>메모 <button class="btn small" style="float:right" onclick="addMemo()">＋ 메모 추가</button></h2>
+   ${(r.memos||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(x=>itemRow(`${esc(x.date||'')} · ${esc(x.text||'')}`,'',``,`editMemo('${x.id}')`,`deleteMemo('${x.id}')`)).join('')||'<div class="muted">등록된 메모 없음</div>'}
+ </div>`;
+ const base=document.getElementById('increaseBase'), amount=document.getElementById('increaseAmount');
+ if(base&&amount) base.addEventListener('input',()=>{amount.value=base.value?Math.round(Number(base.value)*1.05):''});
 }
 function field(label,id,val,type='text'){return `<div><label>${label}</label><input id="${id}" type="${type}" value="${esc(val??'')}"></div>`}
 function itemRow(a,b,main,edit,del){return `<div class="row"><div>${a}<div class="muted">${b}</div></div><div class="actions">${main?`<button class="btn small" onclick="${main}">상태</button>`:''}<button class="btn small" onclick="${edit}">수정</button><button class="btn small danger" onclick="${del}">삭제</button></div></div>`}
-function saveBasic(){const [p,r]=getPR();['tenant','phone','deposit','rent','start','end'].forEach(k=>r[k]=document.getElementById(k).value);r.updatedAt=Date.now();save();renderDetail();renderHome();showToast('저장했습니다.')}
-function saveContract(){const [p,r]=getPR();r.renewalClaim=renewalClaim.value;r.renewalClaimDate=renewalClaimDate.value;r.increaseDate=increaseDate.value;r.noticeDone=noticeDone.value==='true';r.noticeDate=noticeDate.value;r.noticeMethod=noticeMethod.value;r.updatedAt=Date.now();save();renderDetail();showToast('계약관리 내용을 저장했습니다.')}
+function saveBasic(){const [p,r]=getPR();['tenant','deposit','rent','start','end'].forEach(k=>r[k]=document.getElementById(k).value);r.updatedAt=Date.now();save();renderDetail();renderHome();showToast('저장했습니다.')}
+function saveContract(){const [p,r]=getPR();r.renewalClaim=renewalClaim.value;r.renewalClaimDate=renewalClaimDate.value;r.increaseBase=increaseBase.value;r.increaseAmount=increaseAmount.value;r.increaseDate=increaseDate.value;r.noticeDone=noticeDone.value==='true';r.noticeDate=noticeDate.value;r.noticeMethod=noticeMethod.value;r.updatedAt=Date.now();save();renderDetail();showToast('계약관리 내용을 저장했습니다.')}
 function saveMemo(){const [p,r]=getPR();r.memo=memo.value;r.updatedAt=Date.now();save();showToast('메모를 저장했습니다.')}
 function clearMemo(){if(!confirm('메모를 삭제할까요?'))return;memo.value='';saveMemo()}
 function addArrear(){const [p,r]=getPR();const month=prompt('미납 월 (예: 2026-08)'); if(!month)return; const amount=prompt('미납 금액'); if(amount===null)return;r.arrears.push({id:uid('a'),month,amount:Number(amount||0),paid:false});save();renderDetail();renderHome()}
@@ -203,9 +255,24 @@ function editRepair(id){const [p,r]=getPR(),x=r.repairs.find(v=>v.id==id);const 
 function deleteRepair(id){const [p,r]=getPR();if(!confirm('이 수선내역을 삭제할까요?'))return;r.repairs=r.repairs.filter(x=>x.id!=id);save();renderDetail()}
 function addContractFile(e){const f=e.target.files[0];if(!f)return; if(f.size>2*1024*1024){alert('현재 로컬 버전은 계약서 파일 2MB 이하를 권장합니다. 클라우드 연결 후 큰 파일 저장이 가능합니다.');}
  const reader=new FileReader(); reader.onload=()=>{const [p,r]=getPR();r.contracts.push({id:uid('c'),name:f.name,date:new Date().toISOString().slice(0,10),data:reader.result,type:f.type});save();renderDetail()};reader.readAsDataURL(f)}
-function openContract(id){const [p,r]=getPR(),x=r.contracts.find(v=>v.id==id);if(x?.data)window.open(x.data,'_blank')}
+function openContract(id){
+ const [p,r]=getPR(),x=r.contracts.find(v=>v.id==id); if(!x?.data)return;
+ contractModalBox.innerHTML='';
+ if((x.type||'').includes('pdf')){const f=document.createElement('iframe');f.src=x.data;contractModalBox.appendChild(f)}
+ else{const im=document.createElement('img');im.src=x.data;im.alt=x.name||'계약서';im.onclick=(e)=>{e.stopPropagation();im.style.maxWidth=im.style.maxWidth==='none'?'100%':'none'};contractModalBox.appendChild(im)}
+ contractModal.classList.remove('hidden');document.body.style.overflow='hidden';
+}
+function closeContractModal(e,force=false){if(force||e.target===contractModal){contractModal.classList.add('hidden');contractModalBox.innerHTML='';document.body.style.overflow=''}}
+
 function renameContract(id){const [p,r]=getPR(),x=r.contracts.find(v=>v.id==id);const n=prompt('파일명',x.name);if(n===null)return;x.name=n;save();renderDetail()}
 function deleteContract(id){const [p,r]=getPR();if(!confirm('이 계약서 사본을 삭제할까요?'))return;r.contracts=r.contracts.filter(x=>x.id!=id);save();renderDetail()}
+
+function addContact(){const [p,r]=getPR();const label=prompt('연락처 구분 (예: 휴대폰, 집, 가족)','휴대폰');if(label===null)return;const value=prompt('연락처');if(!value)return;r.contacts.push({id:uid('ct'),label,value});save();renderDetail()}
+function editContact(id){const [p,r]=getPR(),x=r.contacts.find(v=>v.id==id);const l=prompt('연락처 구분',x.label);if(l===null)return;const v=prompt('연락처',x.value);if(v===null)return;x.label=l;x.value=v;save();renderDetail()}
+function deleteContact(id){const [p,r]=getPR();if(!confirm('이 연락처를 삭제할까요?'))return;r.contacts=r.contacts.filter(x=>x.id!=id);save();renderDetail()}
+function addMemo(){const [p,r]=getPR();const date=prompt('날짜 (YYYY-MM-DD)',new Date().toISOString().slice(0,10));if(date===null)return;const text=prompt('메모 내용');if(!text)return;r.memos.push({id:uid('m'),date,text});save();renderDetail()}
+function editMemo(id){const [p,r]=getPR(),x=r.memos.find(v=>v.id==id);const d=prompt('날짜',x.date);if(d===null)return;const t=prompt('메모 내용',x.text);if(t===null)return;x.date=d;x.text=t;save();renderDetail()}
+function deleteMemo(id){const [p,r]=getPR();if(!confirm('이 메모를 삭제할까요?'))return;r.memos=r.memos.filter(x=>x.id!=id);save();renderDetail()}
 function addRoom(pid){const p=state.properties.find(x=>x.id==pid);const no=prompt('호실 번호');if(!no)return;p.rooms.push(makeRoom(uid('r'),no,p.type));save();renderHome()}
 function editRoomNo(){const [p,r]=getPR();const no=prompt('호실 번호',r.no);if(no===null||!no.trim())return;r.no=no.trim();save();renderDetail();renderHome()}
 function deleteRoom(){const [p,r]=getPR();if(!confirm(`${r.no}호와 그 안의 모든 자료를 삭제할까요?`))return;p.rooms=p.rooms.filter(x=>x.id!=r.id);save();showHome();renderHome()}
@@ -220,6 +287,27 @@ function showView(v){homeView.classList.toggle('hidden',v!=='home');detailView.c
 function showHome(){renderHome();showView('home')} function showSettings(){showView('settings')} function showLastDetail(){if(current.roomId){renderDetail();showView('detail')}else showToast('먼저 호실을 선택하세요.')}
 function showToast(t){toast.textContent=t;toast.style.display='block';setTimeout(()=>toast.style.display='none',1800)}
 load();
+
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  const b=document.getElementById('installBtn');
+  if(b) b.classList.remove('hidden');
+});
+async function installApp(){
+  if(!deferredInstallPrompt){showToast('브라우저 메뉴의 홈 화면에 추가를 이용하세요.');return}
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt=null;
+  const b=document.getElementById('installBtn');
+  if(b) b.classList.add('hidden');
+}
+window.addEventListener('appinstalled',()=>showToast('임대관리 앱 설치가 완료되었습니다.'));
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+
 </script>
 </body>
 </html>
