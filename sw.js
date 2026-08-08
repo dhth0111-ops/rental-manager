@@ -1,4 +1,4 @@
-const CACHE='rental-manager-v1.2';
+const CACHE='rental-manager-v1.3';
 const ASSETS=[
   './',
   './index.html',
@@ -7,7 +7,8 @@ const ASSETS=[
   './icon-512.png',
   './icon-maskable-192.png',
   './icon-maskable-512.png',
-  './apple-touch-icon.png'
+  './apple-touch-icon.png',
+  './building-hero.jpg'
 ];
 
 self.addEventListener('install', event=>{

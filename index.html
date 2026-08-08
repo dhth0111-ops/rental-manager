@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>임대관리</title>
-<meta name="theme-color" content="#f7e7eb"/>
+<meta name="theme-color" content="#1769e0"/>
 <link rel="manifest" href="./manifest.json"/>
 <link rel="apple-touch-icon" href="./apple-touch-icon.png"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -13,8 +13,8 @@
 
 <style>
 :root{
-  --bg:#f6f7f9;--card:#fff;--line:#e5e7eb;--text:#171717;--muted:#6b7280;
-  --accent:#2f6fed;--danger:#d64545;--warn:#b7791f;--ok:#2f855a;
+  --bg:#f4f7fb;--card:#fff;--line:#dfe6ef;--text:#172033;--muted:#687386;
+  --accent:#1769e0;--danger:#d64545;--warn:#b7791f;--ok:#2f855a;
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text)}
@@ -61,15 +61,52 @@ textarea{min-height:100px;resize:vertical}
 .toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);background:#111;color:white;padding:10px 14px;border-radius:12px;display:none;z-index:20}
 @media(max-width:760px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}}
 
-.install-card{background:linear-gradient(135deg,#fff8fa,#f7e7eb);border:1px solid #edd5dc;border-radius:20px;padding:18px;margin-bottom:12px}
+.install-card{background:linear-gradient(135deg,#f7fbff,#eaf3ff);border:1px solid #cfe0f5;border-radius:20px;padding:18px;margin-bottom:12px}
 .install-head{display:flex;gap:14px;align-items:center}
 .install-icon{width:68px;height:68px;border-radius:18px;box-shadow:0 8px 22px rgba(80,45,60,.12)}
 .install-card h2{margin:0 0 4px;font-size:20px}
 .install-steps{margin:14px 0 0;padding-left:20px;color:var(--muted);line-height:1.7;font-size:13px}
-.btn.install{background:#e7819a;color:white;border-color:#e7819a;font-weight:700}
+.btn.install{background:#1769e0;color:white;border-color:#1769e0;font-weight:700}
+
+.heroHome{background:linear-gradient(135deg,#0f5dcc,#2478e8);color:#fff;border-radius:22px;padding:20px;margin-bottom:14px;overflow:hidden;position:relative}
+.heroHome h2{margin:0;font-size:24px}.heroHome p{margin:5px 0 0;color:#dcecff;font-size:13px}
+.summaryTitle{font-weight:800;margin:4px 0 10px;font-size:17px}
+.stat{box-shadow:0 4px 14px rgba(31,77,130,.04)}
+.statIcon{font-size:21px;margin-bottom:5px}
+.dashboardSection{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}
+.dashboardSection h2{font-size:17px;margin:0 0 10px}
+.dashItem{padding:11px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
+.dashItem:first-of-type{border-top:0}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.quick button{padding:14px;border-radius:14px;border:1px solid #cfe0f5;background:#eef6ff;color:#1557b0;font-weight:700}
+.onboarding{position:fixed;inset:0;background:#f5f9ff;z-index:100;overflow:auto;padding:22px 16px}
+.onboardBox{max-width:620px;margin:auto;background:white;border:1px solid #dbe7f5;border-radius:26px;overflow:hidden;box-shadow:0 15px 45px rgba(25,74,130,.12)}
+.onboardText{text-align:center;padding:24px 22px 10px}.onboardText h1{font-size:42px;color:#0c326b}.onboardText b{color:#1769e0}
+.onboardHero{width:100%;display:block;max-height:330px;object-fit:cover}
+.featureGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px}
+.featureTile{border:1px solid #dfe8f4;border-radius:14px;padding:12px 8px;text-align:center;font-size:12px}.featureTile strong{display:block;margin:5px 0;font-size:13px}
+.startBtn{display:block;width:calc(100% - 28px);margin:4px 14px 22px;border:0;border-radius:14px;background:#1769e0;color:white;font-weight:800;padding:15px;font-size:17px}
+@media(max-width:520px){.onboardText h1{font-size:36px}.featureGrid{grid-template-columns:repeat(2,1fr)}}
+
 </style>
 </head>
 <body>
+<div id="onboarding" class="onboarding hidden">
+ <div class="onboardBox">
+  <div class="onboardText"><div class="muted">건물과 임대를 체계적으로 관리하세요</div><h1>임대관리</h1><b>한눈에 · 쉽게 · 체계적으로</b></div>
+  <img class="onboardHero" src="./building-hero.jpg" alt="임대관리 빌딩">
+  <div class="featureGrid">
+   <div class="featureTile">🏢<strong>임대물건 관리</strong>건물·호실 정보</div>
+   <div class="featureTile">👥<strong>계약·세입자</strong>계약·연락처·만기</div>
+   <div class="featureTile">💰<strong>월세·미납</strong>미납액 자동 계산</div>
+   <div class="featureTile">🔧<strong>수선비</strong>수선내역과 비용</div>
+   <div class="featureTile">📄<strong>계약서</strong>사본 저장·확대</div>
+   <div class="featureTile">📝<strong>메모</strong>날짜별 여러 개</div>
+  </div>
+  <button class="startBtn" onclick="finishOnboarding()">시작하기</button>
+ </div>
+</div>
+
 <div class="wrap">
   <div class="top">
     <div><h1>임대관리</h1><div class="sub">계약 · 월세 · 만기 · 수선 · 계약서 · 메모</div></div>
@@ -77,12 +114,18 @@ textarea{min-height:100px;resize:vertical}
   </div>
 
   <div id="homeView">
+    <div class="heroHome"><h2>임대관리</h2><p>오늘 필요한 임대 정보를 한눈에 확인하세요.</p></div>
+    <div class="summaryTitle">오늘의 요약</div>
     <div class="stats">
-      <div class="stat"><span class="muted">전체 호실</span><b id="sRooms">0</b></div>
-      <div class="stat"><span class="muted">계약중</span><b id="sActive">0</b></div>
-      <div class="stat"><span class="muted">미납</span><b id="sLate">0</b></div>
-      <div class="stat"><span class="muted">만기임박</span><b id="sDue">0</b></div>
+      <div class="stat"><div class="statIcon">🏢</div><span class="muted">전체 호실</span><b id="sRooms">0</b></div>
+      <div class="stat"><div class="statIcon">👥</div><span class="muted">계약중</span><b id="sActive">0</b></div>
+      <div class="stat"><div class="statIcon">💰</div><span class="muted">미납</span><b id="sLate">0</b></div>
+      <div class="stat"><div class="statIcon">🔔</div><span class="muted">만기임박</span><b id="sDue">0</b></div>
     </div>
+    
+    <div id="dashboardExtras"></div>
+    <div class="quick"><button onclick="openPropertyModal()">🏢 임대물건 추가</button><button onclick="quickMemo()">📝 메모 추가</button></div>
+    <div class="summaryTitle">임대물건</div>
     <div id="propertyGrid" class="grid"></div>
   </div>
 
@@ -165,6 +208,10 @@ function load(){
    if(!r.memos) r.memos = r.memo ? [{id:uid('m'),date:new Date().toISOString().slice(0,10),text:r.memo}] : [];
    if(r.increaseBase===undefined) r.increaseBase='';
    if(r.increaseAmount===undefined) r.increaseAmount='';
+   if(r.increaseDepositBase===undefined) r.increaseDepositBase=r.deposit||'';
+   if(r.increaseDepositAmount===undefined) r.increaseDepositAmount='';
+   if(r.renewalDecision===undefined) r.renewalDecision='';
+   if(r.renewalDetail===undefined) r.renewalDetail='';
  }));
  save(); renderHome();
 }
@@ -184,6 +231,14 @@ function renderHome(){
    grid.appendChild(c);
  });
  sRooms.textContent=rooms;sActive.textContent=active;sLate.textContent=late;sDue.textContent=due;
+ const all=state.properties.flatMap(p=>p.rooms.map(r=>({p,r})));
+ const dueItems=all.filter(x=>{const d=daysTo(x.r.end);return x.r.tenant&&d!==null&&d>=0&&d<=180}).sort((a,b)=>daysTo(a.r.end)-daysTo(b.r.end)).slice(0,3);
+ const memoItems=all.flatMap(x=>(x.r.memos||[]).map(m=>({...x,m}))).sort((a,b)=>(b.m.date||'').localeCompare(a.m.date||'')).slice(0,3);
+ const lateItems=all.flatMap(x=>(x.r.arrears||[]).filter(a=>!a.paid).map(a=>({...x,a}))).slice(0,3);
+ dashboardExtras.innerHTML=`
+  <div class="dashboardSection"><h2>계약 만기 예정</h2>${dueItems.length?dueItems.map(x=>`<div class="dashItem"><div><b>${esc(x.r.tenant)} (${esc(x.r.no)}호)</b><div class="muted">${x.r.end} 만기</div></div><b>D-${daysTo(x.r.end)}</b></div>`).join(''):'<div class="muted">다가오는 만기 없음</div>'}</div>
+  <div class="dashboardSection"><h2>최근 메모</h2>${memoItems.length?memoItems.map(x=>`<div class="dashItem"><div><b>${esc(x.m.date||'')}</b><div>${esc(x.m.text||'')}</div></div></div>`).join(''):'<div class="muted">최근 메모 없음</div>'}</div>
+  <div class="dashboardSection"><h2>최근 미납월세</h2>${lateItems.length?lateItems.map(x=>`<div class="dashItem"><div><b>${esc(x.r.tenant||x.r.no+'호')}</b><div class="muted">${esc(x.a.month)} · ${Number(x.a.amount||0).toLocaleString()}원</div></div><span class="badge danger">미납</span></div>`).join(''):'<div class="muted">미납 내역 없음</div>'}</div>`;
 }
 function openRoom(pid,rid){current={propertyId:pid,roomId:rid}; renderDetail(); showView('detail')}
 function getPR(){const p=state.properties.find(x=>x.id==current.propertyId); return [p,p?.rooms.find(x=>x.id==current.roomId)]}
@@ -200,7 +255,7 @@ function renderDetail(){
   </div>
  </div>
  <div class="section"><h2>기본정보</h2><div class="formgrid">
-   ${field('세입자','tenant',r.tenant)} <div><label>연락처</label><div class="muted">아래 연락처 목록에서 여러 개 저장</div></div>
+   ${field('세입자','tenant',r.tenant)} ${field('대표 연락처','phone',r.phone||'')}
    ${field('보증금','deposit',r.deposit,'number')} ${field('월차임','rent',r.rent,'number')}
    ${field('임대차 시작일','start',r.start,'date')} ${field('만기일','end',r.end,'date')}
  </div><div class="actions"><button class="btn primary" onclick="saveBasic()">저장</button></div></div>
@@ -208,13 +263,17 @@ function renderDetail(){
    <div class="formgrid">
     <div><label>계약갱신청구권 행사 여부</label><select id="renewalClaim"><option ${r.renewalClaim==='미행사'?'selected':''}>미행사</option><option ${r.renewalClaim==='행사'?'selected':''}>행사</option><option ${r.renewalClaim==='해당없음'?'selected':''}>해당없음</option></select></div>
     ${field('행사일자','renewalClaimDate',r.renewalClaimDate,'date')}
-    ${field('월차임 5% 증액 기준','increaseBase',r.increaseBase||r.rent,'number')}
+    ${field('5% 증액 기준 보증금','increaseDepositBase',r.increaseDepositBase||r.deposit,'number')}
+    ${field('5% 증액 기준 월차임','increaseBase',r.increaseBase||r.rent,'number')}
+    <div><label>5% 증액 후 보증금</label><input id="increaseDepositAmount" type="number" value="${esc(r.increaseDepositAmount||'')}"></div>
     <div><label>5% 증액 후 월차임</label><input id="increaseAmount" type="number" value="${esc(r.increaseAmount||inc||'')}"></div>
     ${field('실제 증액일','increaseDate',r.increaseDate,'date')}
     <div class="full"><label>만기통보</label><div class="muted">${noticeText}</div></div>
     <div><label>통보 여부</label><select id="noticeDone"><option value="false" ${!r.noticeDone?'selected':''}>미통보</option><option value="true" ${r.noticeDone?'selected':''}>통보완료</option></select></div>
     ${field('통보일','noticeDate',r.noticeDate,'date')}
     <div><label>통보방법</label><select id="noticeMethod">${['문자','카톡','전화','내용증명','기타'].map(x=>`<option ${r.noticeMethod===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div><label>재계약 여부</label><select id="renewalDecision"><option value="">선택</option><option ${r.renewalDecision==='연장'?'selected':''}>연장</option><option ${r.renewalDecision==='만기이사'?'selected':''}>만기이사</option></select></div>
+    <div><label>계약 종료/연장 구분</label><select id="renewalDetail"><option value="">선택</option><option ${r.renewalDetail==='재계약'?'selected':''}>재계약</option><option ${r.renewalDetail==='계약갱신청구권 사용 이사'?'selected':''}>계약갱신청구권 사용 이사</option><option ${r.renewalDetail==='만기이사'?'selected':''}>만기이사</option></select></div>
    </div><div class="actions"><button class="btn primary" onclick="saveContract()">저장</button></div>
  </div>
  <div class="section"><h2>연락처</h2>
@@ -230,7 +289,7 @@ function renderDetail(){
    <div class="actions"><button class="btn" onclick="addRepair()">＋ 수선내역 추가</button></div>
  </div>
  <div class="section"><h2>계약서 사본</h2>
-   ${(r.contracts||[]).map(x=>itemRow(esc(x.name),x.date||'',`openContract('${x.id}')`,`renameContract('${x.id}')`,`deleteContract('${x.id}')`)).join('')||'<div class="muted">저장된 계약서 없음</div>'}
+   ${(r.contracts||[]).map(x=>`<div class="row"><div style="min-width:0"><b style="word-break:break-all">${esc(x.name)}</b><div class="muted">${x.date||''}</div></div><div class="actions"><button class="btn small primary" onclick="openContract('${x.id}')">미리보기</button><button class="btn small" onclick="renameContract('${x.id}')">수정</button><button class="btn small danger" onclick="deleteContract('${x.id}')">삭제</button></div></div>`).join('')||'<div class="muted">저장된 계약서 없음</div>'}
    <div class="actions"><label class="btn" style="cursor:pointer">＋ 계약서 파일<input type="file" accept="image/*,.pdf" hidden onchange="addContractFile(event)"/></label></div>
    <p class="muted">브라우저 저장공간 한계 때문에 큰 파일은 백업 JSON에 직접 포함되지 않을 수 있습니다. Firebase 연결 시 파일 저장소로 분리합니다.</p>
  </div>
@@ -238,12 +297,14 @@ function renderDetail(){
    ${(r.memos||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(x=>itemRow(`${esc(x.date||'')} · ${esc(x.text||'')}`,'',``,`editMemo('${x.id}')`,`deleteMemo('${x.id}')`)).join('')||'<div class="muted">등록된 메모 없음</div>'}
  </div>`;
  const base=document.getElementById('increaseBase'), amount=document.getElementById('increaseAmount');
+ const depBase=document.getElementById('increaseDepositBase'),depAmount=document.getElementById('increaseDepositAmount');
  if(base&&amount) base.addEventListener('input',()=>{amount.value=base.value?Math.round(Number(base.value)*1.05):''});
+ if(depBase&&depAmount) depBase.addEventListener('input',()=>{depAmount.value=depBase.value?Math.round(Number(depBase.value)*1.05):''});
 }
 function field(label,id,val,type='text'){return `<div><label>${label}</label><input id="${id}" type="${type}" value="${esc(val??'')}"></div>`}
 function itemRow(a,b,main,edit,del){return `<div class="row"><div>${a}<div class="muted">${b}</div></div><div class="actions">${main?`<button class="btn small" onclick="${main}">상태</button>`:''}<button class="btn small" onclick="${edit}">수정</button><button class="btn small danger" onclick="${del}">삭제</button></div></div>`}
-function saveBasic(){const [p,r]=getPR();['tenant','deposit','rent','start','end'].forEach(k=>r[k]=document.getElementById(k).value);r.updatedAt=Date.now();save();renderDetail();renderHome();showToast('저장했습니다.')}
-function saveContract(){const [p,r]=getPR();r.renewalClaim=renewalClaim.value;r.renewalClaimDate=renewalClaimDate.value;r.increaseBase=increaseBase.value;r.increaseAmount=increaseAmount.value;r.increaseDate=increaseDate.value;r.noticeDone=noticeDone.value==='true';r.noticeDate=noticeDate.value;r.noticeMethod=noticeMethod.value;r.updatedAt=Date.now();save();renderDetail();showToast('계약관리 내용을 저장했습니다.')}
+function saveBasic(){const [p,r]=getPR();['tenant','phone','deposit','rent','start','end'].forEach(k=>r[k]=document.getElementById(k).value);r.updatedAt=Date.now();save();renderDetail();renderHome();showToast('저장했습니다.')}
+function saveContract(){const [p,r]=getPR();r.renewalClaim=renewalClaim.value;r.renewalClaimDate=renewalClaimDate.value;r.increaseDepositBase=increaseDepositBase.value;r.increaseDepositAmount=increaseDepositAmount.value;r.increaseBase=increaseBase.value;r.increaseAmount=increaseAmount.value;r.increaseDate=increaseDate.value;r.noticeDone=noticeDone.value==='true';r.noticeDate=noticeDate.value;r.noticeMethod=noticeMethod.value;r.renewalDecision=renewalDecision.value;r.renewalDetail=renewalDetail.value;r.updatedAt=Date.now();save();renderDetail();showToast('계약관리 내용을 저장했습니다.')}
 function saveMemo(){const [p,r]=getPR();r.memo=memo.value;r.updatedAt=Date.now();save();showToast('메모를 저장했습니다.')}
 function clearMemo(){if(!confirm('메모를 삭제할까요?'))return;memo.value='';saveMemo()}
 function addArrear(){const [p,r]=getPR();const month=prompt('미납 월 (예: 2026-08)'); if(!month)return; const amount=prompt('미납 금액'); if(amount===null)return;r.arrears.push({id:uid('a'),month,amount:Number(amount||0),paid:false});save();renderDetail();renderHome()}
@@ -287,6 +348,17 @@ function showView(v){homeView.classList.toggle('hidden',v!=='home');detailView.c
 function showHome(){renderHome();showView('home')} function showSettings(){showView('settings')} function showLastDetail(){if(current.roomId){renderDetail();showView('detail')}else showToast('먼저 호실을 선택하세요.')}
 function showToast(t){toast.textContent=t;toast.style.display='block';setTimeout(()=>toast.style.display='none',1800)}
 load();
+
+
+function quickMemo(){
+ const rooms=state.properties.flatMap(p=>p.rooms.map(r=>({p,r})));
+ if(!rooms.length){showToast('먼저 호실을 추가하세요.');return}
+ const no=prompt('메모할 호실 번호');if(!no)return;
+ const x=rooms.find(x=>x.r.no===no.trim());if(!x){alert('해당 호실을 찾을 수 없습니다.');return}
+ current={propertyId:x.p.id,roomId:x.r.id};addMemo();renderHome();
+}
+function finishOnboarding(){localStorage.setItem('rentalOnboardingSeen','1');onboarding.classList.add('hidden')}
+if(!localStorage.getItem('rentalOnboardingSeen')) onboarding.classList.remove('hidden');
 
 let deferredInstallPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{
