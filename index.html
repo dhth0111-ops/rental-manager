@@ -199,8 +199,8 @@ textarea{min-height:100px;resize:vertical}
     </div>
 
     <div class="section versionCard">
-      <div style="font-weight:800;font-size:18px">임대관리 v1.8.2</div>
-      <div class="muted" style="margin-top:6px">계약이력 누적 · 2026-08-11</div>
+      <div style="font-weight:800;font-size:18px">임대관리 v1.8.3</div>
+      <div class="muted" style="margin-top:6px">계약서 이력 보존 · 2026-08-11</div>
     </div>
   </div>
 </div>
@@ -406,6 +406,39 @@ function deletePastLease(id){
   r.leaseHistory=(r.leaseHistory||[]).filter(v=>v.id!==id);
   save();renderDetail();
 }
+
+function getPastLeaseAndDoc(leaseId,docId){
+  const [p,r]=getPR();
+  const lease=(r.leaseHistory||[]).find(v=>v.id===leaseId);
+  const doc=lease?(lease.contracts||[]).find(v=>v.id===docId):null;
+  return {r,lease,doc};
+}
+function openPastContract(leaseId,docId){
+  const {doc}=getPastLeaseAndDoc(leaseId,docId);
+  if(!doc?.data){alert('계약서 파일을 찾을 수 없습니다.');return}
+  const w=window.open('','_blank');
+  if(!w){alert('팝업이 차단되었습니다.');return}
+  if((doc.type||'').startsWith('image/')){
+    w.document.write(`<title>${esc(doc.name)}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:flex-start;min-height:100vh}img{max-width:100%;height:auto}</style><img src="${doc.data}" alt="${esc(doc.name)}">`);
+  }else if(doc.type==='application/pdf'){
+    w.document.write(`<title>${esc(doc.name)}</title><iframe src="${doc.data}" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe>`);
+  }else{
+    w.location.href=doc.data;
+  }
+  w.document.close?.();
+}
+function renamePastContract(leaseId,docId){
+  const {doc}=getPastLeaseAndDoc(leaseId,docId); if(!doc)return;
+  const n=prompt('파일명',doc.name||''); if(n===null)return;
+  doc.name=n; save(); renderDetail();
+}
+function deletePastContract(leaseId,docId){
+  const {r,lease}=getPastLeaseAndDoc(leaseId,docId); if(!lease)return;
+  if(!confirm('이 이전 계약의 계약서 사본을 삭제할까요?'))return;
+  lease.contracts=(lease.contracts||[]).filter(v=>v.id!==docId);
+  save(); renderDetail();
+}
+
 function showPastLease(id){
   const [p,r]=getPR(); const x=(r.leaseHistory||[]).find(v=>v.id===id); if(!x)return;
   const no=(r.leaseHistory||[]).findIndex(v=>v.id===id)+1;
@@ -440,8 +473,19 @@ function renderDetail(){
       <span class="endedContractBadge">종료 계약</span>
     </div>
     <div class="contractHistoryMeta">${esc(x.start||'-')} ~ ${esc(x.end||'-')}<br>보증금 ${esc(x.deposit||'-')} · 월차임 ${esc(x.rent||'-')}</div>
+    ${(x.contracts||[]).length?`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
+      <div class="muted" style="margin-bottom:6px">계약서 사본 ${(x.contracts||[]).length}개</div>
+      ${(x.contracts||[]).map(doc=>`<div class="row" style="padding:7px 0">
+        <div style="min-width:0;word-break:break-all">${esc(doc.name||'계약서')}<div class="muted">${esc(doc.date||'')}</div></div>
+        <div class="actions">
+          <button class="btn small primary" onclick="openPastContract('${x.id}','${doc.id}')">보기</button>
+          <button class="btn small" onclick="renamePastContract('${x.id}','${doc.id}')">수정</button>
+          <button class="btn small danger" onclick="deletePastContract('${x.id}','${doc.id}')">삭제</button>
+        </div>
+      </div>`).join('')}
+    </div>`:''}
     <div class="actions">
-      <button class="btn small" onclick="showPastLease('${x.id}')">보기</button>
+      <button class="btn small" onclick="showPastLease('${x.id}')">계약내용 보기</button>
       <button class="btn small" onclick="editPastLease('${x.id}')">수정</button>
       <button class="btn small danger" onclick="deletePastLease('${x.id}')">삭제</button>
     </div>
@@ -492,7 +536,7 @@ function renderDetail(){
    ${(r.repairs||[]).map(x=>itemRow(`${x.date||''} · ${esc(x.title||'수선')}`,`${Number(x.amount||0).toLocaleString()}원`,``,`editRepair('${x.id}')`,`deleteRepair('${x.id}')`)).join('')||'<div class="muted">등록된 수선내역 없음</div>'}
    <div class="actions"><button class="btn" onclick="addRepair()">＋ 수선내역 추가</button></div>
  </div>
- <div class="section"><h2>현재 계약서 사본</h2>
+ <div class="section"><h2>현재 계약서 사본</h2><div class="muted" style="margin-bottom:10px">새 계약을 추가하면 이 계약서도 해당 종료 계약 이력에 함께 보관됩니다.</div>
    ${(r.contracts||[]).map(x=>`<div class="row"><div style="min-width:0"><b style="word-break:break-all">${esc(x.name)}</b><div class="muted">${x.date||''}</div></div><div class="actions"><button class="btn small primary" onclick="openContract('${x.id}')">미리보기</button><button class="btn small" onclick="renameContract('${x.id}')">수정</button><button class="btn small danger" onclick="deleteContract('${x.id}')">삭제</button></div></div>`).join('')||'<div class="muted">저장된 계약서 없음</div>'}
    <div class="actions"><label class="btn" style="cursor:pointer">＋ 계약서 파일<input type="file" accept="image/*,.pdf" hidden onchange="addContractFile(event)"/></label></div>
    <p class="muted">계약서 파일은 이 기기의 브라우저 저장공간에 보관되며, 암호화 백업에 함께 포함됩니다.</p>
@@ -642,7 +686,7 @@ async function downloadEncryptedBackup(){
   try{
     const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
     const key=await deriveAesKey(password,salt,['encrypt']);
-    const payload={format:'rental-manager-encrypted-backup',version:1,appVersion:'1.8.2',createdAt:new Date().toISOString(),state};
+    const payload={format:'rental-manager-encrypted-backup',version:1,appVersion:'1.8.3',createdAt:new Date().toISOString(),state};
     const plain=new TextEncoder().encode(JSON.stringify(payload));
     const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,plain);
     const envelope={format:'rental-manager-encrypted',version:1,kdf:'PBKDF2-SHA256',iterations:210000,cipher:'AES-256-GCM',salt:bytesToB64(salt),iv:bytesToB64(iv),data:bytesToB64(new Uint8Array(cipher))};
