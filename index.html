@@ -103,6 +103,13 @@ textarea{min-height:100px;resize:vertical}
 .propertyContractGroup{border:1px solid var(--line);border-radius:16px;overflow:hidden;margin:14px 0;background:#fff}.propertyContractHead{padding:13px 14px;background:#eef5ff;border-bottom:1px solid #d8e5f5}.propertyAddress{font-size:14px;font-weight:800;color:#1557b0;margin-bottom:3px}.propertyName{font-size:13px;color:var(--muted)}.propertyContractGroup .compactContract{padding:12px 14px}
 .backToList{margin-bottom:12px}.targetFlash{animation:targetFlash 1.8s ease}@keyframes targetFlash{0%,100%{box-shadow:none}35%{box-shadow:0 0 0 4px rgba(23,105,224,.18)}}
 .backToList{margin-bottom:12px}.targetFlash{animation:targetFlash 1.8s ease}@keyframes targetFlash{0%,100%{box-shadow:none}35%{box-shadow:0 0 0 4px rgba(23,105,224,.18)}}
+
+.lockOverlay{position:fixed;inset:0;z-index:300;background:linear-gradient(160deg,#0d4fae,#1769e0);display:flex;align-items:center;justify-content:center;padding:20px}
+.lockCard{width:min(380px,100%);background:white;border-radius:24px;padding:26px;box-shadow:0 18px 55px rgba(0,0,0,.25);text-align:center}
+.lockCard h2{margin:8px 0 6px;font-size:24px;color:#17325f}.lockCard p{margin:0 0 18px;color:var(--muted);font-size:13px}
+.lockIcon{font-size:42px}.lockCard input{font-size:20px;text-align:center;letter-spacing:4px}
+.securityNote{background:#eef6ff;border:1px solid #cfe0f5;border-radius:14px;padding:12px;color:#38516f;font-size:13px;line-height:1.55;margin-top:10px}
+.versionCard{text-align:center}
 </style>
 </head>
 <body>
@@ -151,46 +158,50 @@ textarea{min-height:100px;resize:vertical}
     <div class="install-card">
       <div class="install-head">
         <img class="install-icon" src="./icon-192.png" alt="임대관리 앱 아이콘">
-        <div>
-          <h2>임대관리 앱 설치</h2>
-          <div class="muted">홈 화면에서 바로 열고 앱처럼 사용합니다.</div>
-        </div>
+        <div><h2>임대관리 앱 설치</h2><div class="muted">홈 화면에서 바로 열고 앱처럼 사용합니다.</div></div>
       </div>
-      <div class="actions">
-        <button id="installBtn" class="btn install" onclick="installApp()">📲 홈 화면에 설치</button>
-      </div>
-      <div class="muted" style="margin-top:10px">버튼을 누르면 설치 창을 열고, 지원되지 않을 때는 Chrome 메뉴 설치 방법을 안내합니다.</div>
-      <ol class="install-steps" id="manualInstall">
-        <li>Chrome 메뉴를 엽니다.</li>
-        <li>‘홈 화면에 추가’ 또는 ‘앱 설치’를 선택합니다.</li>
-        <li>임대관리 아이콘을 확인하고 설치합니다.</li>
-      </ol>
+      <div class="actions"><button id="installBtn" class="btn install" onclick="installApp()">📲 홈 화면에 설치</button></div>
+      <div class="muted" style="margin-top:10px">설치 창이 뜨지 않으면 Chrome 메뉴의 ‘홈 화면에 추가’ 또는 ‘앱 설치’를 사용하세요.</div>
     </div>
+
     <div class="section">
-      <h2>기본자료</h2>
-      <p class="muted">현재 상태를 기본자료로 저장하거나, 저장된 기본자료로 되돌립니다.</p>
+      <h2>🔐 앱 비밀번호</h2>
+      <p class="muted">앱을 다시 열었을 때 임대자료 화면을 잠급니다.</p>
+      <div class="row"><div>현재 상태</div><div id="lockStatus"><span class="badge">사용 안 함</span></div></div>
       <div class="actions">
-        <button class="btn" onclick="saveBaseline()">기본자료로 저장</button>
-        <button class="btn" onclick="loadBaseline()">기본자료 불러오기</button>
+        <button class="btn primary" onclick="setOrChangeAppPassword()">비밀번호 설정·변경</button>
+        <button class="btn" onclick="lockNow()">지금 잠그기</button>
+        <button class="btn danger" onclick="disableAppPassword()">비밀번호 해제</button>
       </div>
+      <div class="securityNote">비밀번호 원문은 저장하지 않고 검증용 값만 이 기기에 저장합니다. 비밀번호를 잊으면 앱에서 확인할 수 없습니다.</div>
     </div>
+
     <div class="section">
-      <h2>백업 · 복원</h2>
+      <h2>🔐 암호화 백업</h2>
+      <p class="muted">세입자·계약·메모·계약서 정보를 암호화된 파일 하나로 수동 저장합니다.</p>
       <div class="actions">
-        <button class="btn" onclick="downloadBackup()">전체 백업 저장</button>
-        <label class="btn" style="cursor:pointer">백업 불러오기<input type="file" accept=".json" hidden onchange="importBackup(event)"/></label>
+        <button class="btn primary" onclick="downloadEncryptedBackup()">암호화 백업 저장</button>
+        <label class="btn" style="cursor:pointer">암호화 백업 복원<input type="file" accept=".rentalbak,.json,application/json" hidden onchange="restoreEncryptedBackup(event)"></label>
       </div>
+      <div class="securityNote">백업 암호는 앱 비밀번호와 별개입니다. 복원할 때 설정한 백업 암호가 필요합니다.</div>
     </div>
-    <div class="section">
-      <h2>클라우드 동기화</h2>
-      <p class="muted">Firebase 전용 프로젝트 연결용 자리입니다. 현재 버전은 로컬 저장과 백업이 우선 동작합니다.</p>
-      <div class="row"><div>상태</div><div><span class="badge">미연결</span></div></div>
-      <div class="actions"><button class="btn" onclick="showToast('Firebase 설정값을 넣으면 이 자리에서 연결됩니다.')">연결 설정</button></div>
+
+    <div class="section versionCard">
+      <div style="font-weight:800;font-size:18px">임대관리 v1.8</div>
+      <div class="muted" style="margin-top:6px">데이터 보안판 · 2026-08-08</div>
     </div>
-    <div class="section" style="text-align:center">
-      <div style="font-weight:800;font-size:18px">임대관리 v1.7</div>
-      <div class="muted" style="margin-top:6px">마지막 업데이트: 2026-08-08</div>
-    </div>
+  </div>
+</div>
+
+
+<div id="appLockOverlay" class="lockOverlay hidden">
+  <div class="lockCard">
+    <div class="lockIcon">🔐</div>
+    <h2>임대관리 잠금</h2>
+    <p>설정한 앱 비밀번호를 입력하세요.</p>
+    <input id="unlockPassword" type="password" inputmode="numeric" autocomplete="current-password" placeholder="비밀번호">
+    <div class="actions" style="justify-content:center;margin-top:14px"><button class="btn primary" onclick="unlockApp()">잠금 해제</button></div>
+    <div id="unlockMsg" class="muted" style="margin-top:10px"></div>
   </div>
 </div>
 
@@ -206,7 +217,6 @@ textarea{min-height:100px;resize:vertical}
 
 <script>
 const KEY='rentalManagerV1';
-const BASEKEY='rentalManagerBaselineV1';
 let state;
 let current={propertyId:null, roomId:null};
 
@@ -318,7 +328,7 @@ function renderDetail(){
  <div class="section"><h2>계약서 사본</h2>
    ${(r.contracts||[]).map(x=>`<div class="row"><div style="min-width:0"><b style="word-break:break-all">${esc(x.name)}</b><div class="muted">${x.date||''}</div></div><div class="actions"><button class="btn small primary" onclick="openContract('${x.id}')">미리보기</button><button class="btn small" onclick="renameContract('${x.id}')">수정</button><button class="btn small danger" onclick="deleteContract('${x.id}')">삭제</button></div></div>`).join('')||'<div class="muted">저장된 계약서 없음</div>'}
    <div class="actions"><label class="btn" style="cursor:pointer">＋ 계약서 파일<input type="file" accept="image/*,.pdf" hidden onchange="addContractFile(event)"/></label></div>
-   <p class="muted">브라우저 저장공간 한계 때문에 큰 파일은 백업 JSON에 직접 포함되지 않을 수 있습니다. Firebase 연결 시 파일 저장소로 분리합니다.</p>
+   <p class="muted">계약서 파일은 이 기기의 브라우저 저장공간에 보관되며, 암호화 백업에 함께 포함됩니다.</p>
  </div>
  <div class="section" id="memoSection"><h2>메모 <button class="btn small" style="float:right" onclick="addMemo()">＋ 메모 추가</button></h2>
    ${(r.memos||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(x=>itemRow(`${esc(x.date||'')} · ${esc(x.text||'')}`,'',``,`editMemo('${x.id}')`,`deleteMemo('${x.id}')`)).join('')||'<div class="muted">등록된 메모 없음</div>'}
@@ -341,7 +351,7 @@ function toggleArrear(id){const [p,r]=getPR(),a=r.arrears.find(x=>x.id==id);a.pa
 function addRepair(){const [p,r]=getPR();const title=prompt('수선 내용');if(!title)return;const amount=prompt('수선비');if(amount===null)return;const date=prompt('날짜 (YYYY-MM-DD)',new Date().toISOString().slice(0,10));r.repairs.push({id:uid('rp'),title,amount:Number(amount||0),date});save();renderDetail()}
 function editRepair(id){const [p,r]=getPR(),x=r.repairs.find(v=>v.id==id);const t=prompt('수선 내용',x.title);if(t===null)return;const a=prompt('수선비',x.amount);if(a===null)return;const d=prompt('날짜',x.date);x.title=t;x.amount=Number(a||0);x.date=d;save();renderDetail()}
 function deleteRepair(id){const [p,r]=getPR();if(!confirm('이 수선내역을 삭제할까요?'))return;r.repairs=r.repairs.filter(x=>x.id!=id);save();renderDetail()}
-function addContractFile(e){const f=e.target.files[0];if(!f)return; if(f.size>2*1024*1024){alert('현재 로컬 버전은 계약서 파일 2MB 이하를 권장합니다. 클라우드 연결 후 큰 파일 저장이 가능합니다.');}
+function addContractFile(e){const f=e.target.files[0];if(!f)return; if(f.size>2*1024*1024){alert('현재 로컬 버전은 계약서 파일 2MB 이하를 권장합니다.');}
  const reader=new FileReader(); reader.onload=()=>{const [p,r]=getPR();r.contracts.push({id:uid('c'),name:f.name,date:new Date().toISOString().slice(0,10),data:reader.result,type:f.type});save();renderDetail()};reader.readAsDataURL(f)}
 function openContract(id){
  const [p,r]=getPR(),x=r.contracts.find(v=>v.id==id); if(!x?.data)return;
@@ -367,10 +377,93 @@ function deleteRoom(){const [p,r]=getPR();if(!confirm(`${r.no}호와 그 안의 
 function openPropertyModal(){const name=prompt('임대물건 이름');if(!name)return;const address=prompt('지번주소 (예: ○○동 123-4)','');if(address===null)return;const type=prompt('구분을 입력하세요: 주택 또는 상가','주택');if(type===null)return;state.properties.push({id:uid('p'),name,address:address.trim(),type:type.includes('상가')?'상가':'주택',rooms:[]});save();renderHome()}
 function editProperty(id){const p=state.properties.find(x=>x.id==id);const n=prompt('임대물건 이름',p.name);if(n===null)return;const a=prompt('지번주소',p.address||'');if(a===null)return;const t=prompt('구분: 주택 또는 상가',p.type);if(t===null)return;p.name=n;p.address=a.trim();p.type=t.includes('상가')?'상가':'주택';p.rooms.forEach(r=>r.type=p.type);save();renderHome()}
 function deleteProperty(id){const p=state.properties.find(x=>x.id==id);if(!confirm(`${p.name}과 모든 호실 자료를 삭제할까요?`))return;state.properties=state.properties.filter(x=>x.id!=id);save();renderHome()}
-function saveBaseline(){localStorage.setItem(BASEKEY,JSON.stringify(state));showToast('현재 상태를 기본자료로 저장했습니다.')}
-function loadBaseline(){const x=localStorage.getItem(BASEKEY);if(!x){alert('저장된 기본자료가 없습니다.');return}if(!confirm('현재 자료를 기본자료로 덮어쓸까요?'))return;state=JSON.parse(x);save();renderHome();showHome()}
-function downloadBackup(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`임대관리_백업_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
-function importBackup(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const obj=JSON.parse(rd.result);if(!obj.properties)throw 0;if(!confirm('현재 자료를 백업파일 내용으로 바꿀까요?'))return;state=obj;save();renderHome();showHome();showToast('백업을 불러왔습니다.')}catch(_){alert('올바른 백업파일이 아닙니다.')}};rd.readAsText(f)}
+
+
+const LOCKCFG='rentalManagerLockV1';
+let appUnlocked=false;
+
+function bytesToB64(bytes){let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin)}
+function b64ToBytes(b64){const bin=atob(b64),out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out}
+async function deriveAesKey(password,salt,usage){
+  const enc=new TextEncoder();
+  const base=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,usage);
+}
+async function passwordVerifier(password,salt){
+  const enc=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},key,256);
+  return bytesToB64(new Uint8Array(bits));
+}
+function getLockCfg(){try{return JSON.parse(localStorage.getItem(LOCKCFG)||'null')}catch(_){return null}}
+function updateLockStatus(){const el=document.getElementById('lockStatus');if(el)el.innerHTML=getLockCfg()?'<span class="badge ok">사용 중</span>':'<span class="badge">사용 안 함</span>'}
+function showLock(){if(!getLockCfg())return;appUnlocked=false;appLockOverlay.classList.remove('hidden');unlockPassword.value='';unlockMsg.textContent='';setTimeout(()=>unlockPassword.focus(),50)}
+async function unlockApp(){
+  const cfg=getLockCfg(); if(!cfg){appLockOverlay.classList.add('hidden');appUnlocked=true;return}
+  const pw=unlockPassword.value; if(!pw){unlockMsg.textContent='비밀번호를 입력하세요.';return}
+  try{
+    const v=await passwordVerifier(pw,b64ToBytes(cfg.salt));
+    if(v!==cfg.verifier){unlockMsg.textContent='비밀번호가 맞지 않습니다.';unlockPassword.value='';return}
+    appUnlocked=true;appLockOverlay.classList.add('hidden');unlockPassword.value='';
+  }catch(_){unlockMsg.textContent='잠금 확인 중 오류가 발생했습니다.'}
+}
+async function setOrChangeAppPassword(){
+  const old=getLockCfg();
+  if(old){
+    const currentPw=prompt('현재 앱 비밀번호를 입력하세요.'); if(currentPw===null)return;
+    const v=await passwordVerifier(currentPw,b64ToBytes(old.salt)); if(v!==old.verifier){alert('현재 비밀번호가 맞지 않습니다.');return}
+  }
+  const p1=prompt('새 앱 비밀번호를 입력하세요. (4자 이상)'); if(p1===null)return;
+  if(p1.length<4){alert('비밀번호는 4자 이상으로 설정하세요.');return}
+  const p2=prompt('새 비밀번호를 한 번 더 입력하세요.'); if(p2!==p1){alert('비밀번호가 서로 다릅니다.');return}
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const verifier=await passwordVerifier(p1,salt);
+  localStorage.setItem(LOCKCFG,JSON.stringify({salt:bytesToB64(salt),verifier,createdAt:Date.now()}));
+  appUnlocked=true;updateLockStatus();showToast('앱 비밀번호를 저장했습니다.');
+}
+async function disableAppPassword(){
+  const cfg=getLockCfg(); if(!cfg){showToast('설정된 앱 비밀번호가 없습니다.');return}
+  const pw=prompt('현재 앱 비밀번호를 입력하세요.'); if(pw===null)return;
+  const v=await passwordVerifier(pw,b64ToBytes(cfg.salt)); if(v!==cfg.verifier){alert('비밀번호가 맞지 않습니다.');return}
+  if(!confirm('앱 비밀번호 잠금을 해제할까요?'))return;
+  localStorage.removeItem(LOCKCFG);appUnlocked=true;appLockOverlay.classList.add('hidden');updateLockStatus();showToast('앱 비밀번호 잠금을 해제했습니다.');
+}
+function lockNow(){if(!getLockCfg()){showToast('먼저 앱 비밀번호를 설정하세요.');return}showLock()}
+
+async function downloadEncryptedBackup(){
+  const password=prompt('백업 파일 암호를 입력하세요. (6자 이상)'); if(password===null)return;
+  if(password.length<6){alert('백업 암호는 6자 이상으로 설정하세요.');return}
+  const confirmPw=prompt('백업 암호를 한 번 더 입력하세요.'); if(confirmPw!==password){alert('백업 암호가 서로 다릅니다.');return}
+  try{
+    const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+    const key=await deriveAesKey(password,salt,['encrypt']);
+    const payload={format:'rental-manager-encrypted-backup',version:1,appVersion:'1.8',createdAt:new Date().toISOString(),state};
+    const plain=new TextEncoder().encode(JSON.stringify(payload));
+    const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,plain);
+    const envelope={format:'rental-manager-encrypted',version:1,kdf:'PBKDF2-SHA256',iterations:210000,cipher:'AES-256-GCM',salt:bytesToB64(salt),iv:bytesToB64(iv),data:bytesToB64(new Uint8Array(cipher))};
+    const blob=new Blob([JSON.stringify(envelope)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`임대관리_암호화백업_${new Date().toISOString().slice(0,10)}.rentalbak`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);showToast('암호화 백업을 저장했습니다.');
+  }catch(_){alert('암호화 백업을 만들지 못했습니다.')}
+}
+function restoreEncryptedBackup(event){
+  const file=event.target.files?.[0];event.target.value='';if(!file)return;
+  const rd=new FileReader();
+  rd.onload=async()=>{
+    try{
+      const envelope=JSON.parse(rd.result);
+      if(envelope.format!=='rental-manager-encrypted'||!envelope.salt||!envelope.iv||!envelope.data)throw new Error('format');
+      const password=prompt('이 백업의 암호를 입력하세요.');if(password===null)return;
+      const key=await deriveAesKey(password,b64ToBytes(envelope.salt),['decrypt']);
+      const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64ToBytes(envelope.iv)},key,b64ToBytes(envelope.data));
+      const payload=JSON.parse(new TextDecoder().decode(plain));
+      if(payload.format!=='rental-manager-encrypted-backup'||!payload.state?.properties)throw new Error('payload');
+      if(!confirm('현재 임대자료를 이 암호화 백업 내용으로 바꿀까요?'))return;
+      state=payload.state;save();renderHome();showDashboard();showToast('암호화 백업을 복원했습니다.');
+    }catch(_){alert('복원할 수 없습니다. 백업 암호가 틀렸거나 파일이 손상되었습니다.')}
+  };
+  rd.readAsText(file);
+}
 
 let contractFilter='all';
 function moneyCompact(v){
@@ -406,7 +499,9 @@ function showSettings(){showView('settings');window.scrollTo({top:0,behavior:'sm
 function showLastDetail(){showRentalList()}
 function showToast(t){toast.textContent=t;toast.style.display='block';setTimeout(()=>toast.style.display='none',1800)}
 load();
-
+updateLockStatus();
+if(getLockCfg())showLock();else appUnlocked=true;
+document.getElementById('unlockPassword')?.addEventListener('keydown',e=>{if(e.key==='Enter')unlockApp()});
 
 function quickMemo(){
  const rooms=state.properties.flatMap(p=>p.rooms.map(r=>({p,r})));

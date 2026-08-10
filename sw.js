@@ -1,4 +1,4 @@
-const CACHE='rental-manager-v1.7-complete';
+const CACHE='rental-manager-v1.8';
 const ASSETS=[
   './',
   './index.html',
