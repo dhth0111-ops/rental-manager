@@ -110,6 +110,18 @@ textarea{min-height:100px;resize:vertical}
 .lockIcon{font-size:42px}.lockCard input{font-size:20px;text-align:center;letter-spacing:4px}
 .securityNote{background:#eef6ff;border:1px solid #cfe0f5;border-radius:14px;padding:12px;color:#38516f;font-size:13px;line-height:1.55;margin-top:10px}
 .versionCard{text-align:center}
+
+.rentCalcNote{background:#f4f8ff;border:1px solid #d5e3f7;border-radius:14px;padding:12px;margin:10px 0;font-size:13px;color:#455a75;line-height:1.55}
+.calcResult{background:#eef6ff;border:1px solid #cfe0f5;border-radius:14px;padding:12px;margin-top:10px}
+.calcResult strong{font-size:16px;color:#1557b0}
+.moneyHelp{font-size:12px;color:var(--muted);margin-top:5px}
+
+
+.contractHistoryCard{border:1px solid var(--line);border-radius:16px;padding:13px;margin:10px 0;background:#fff}
+.contractHistoryHead{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.contractHistoryTitle{font-weight:800}.contractHistoryMeta{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.5}
+.currentContractBadge{display:inline-block;background:#e8f2ff;color:#1557b0;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:700}
+.endedContractBadge{display:inline-block;background:#f0f1f3;color:#687386;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:700}
 </style>
 </head>
 <body>
@@ -187,8 +199,8 @@ textarea{min-height:100px;resize:vertical}
     </div>
 
     <div class="section versionCard">
-      <div style="font-weight:800;font-size:18px">임대관리 v1.8</div>
-      <div class="muted" style="margin-top:6px">데이터 보안판 · 2026-08-08</div>
+      <div style="font-weight:800;font-size:18px">임대관리 v1.8.2</div>
+      <div class="muted" style="margin-top:6px">계약이력 누적 · 2026-08-11</div>
     </div>
   </div>
 </div>
@@ -242,14 +254,53 @@ function load(){
    if(r.increaseAmount===undefined) r.increaseAmount='';
    if(r.increaseDepositBase===undefined) r.increaseDepositBase=r.deposit||'';
    if(r.increaseDepositAmount===undefined) r.increaseDepositAmount='';
+   if(r.renthomeRate===undefined) r.renthomeRate=4.75;
+   if(r.increaseTargetPct===undefined) r.increaseTargetPct=5;
    if(r.renewalDecision===undefined) r.renewalDecision='';
    if(r.renewalDetail===undefined) r.renewalDetail='';
+   if(!Array.isArray(r.leaseHistory)) r.leaseHistory=[];
  });});
  save(); renderHome();
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(state))}
 function uid(p='id'){return p+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+function parseMoneyInput(v){
+  if(v===null||v===undefined)return 0;
+  let t=String(v).trim().replace(/,/g,'').replace(/\s/g,'');
+  if(!t)return 0;
+  let mult=1;
+  if(t.includes('만원')){mult=10000;t=t.replace(/만원/g,'')}
+  else if(t.includes('천원')){mult=1000;t=t.replace(/천원/g,'')}
+  else t=t.replace(/원/g,'');
+  t=t.replace(/[^\d.-]/g,'');
+  const n=Number(t);
+  return Number.isFinite(n)?n*mult:0;
+}
+function formatMoneyInput(v){
+  const n=parseMoneyInput(v);
+  return n?Math.round(n).toLocaleString('ko-KR')+'원':'';
+}
+function calcRenthomeTarget(dep0,rent0,ratePct=4.75,increasePct=5){
+  const rate=Number(ratePct)/100;
+  if(!(rate>0))return null;
+  const converted=dep0+(rent0*12)/rate;
+  return {converted,target:converted*(1+Number(increasePct)/100),rate};
+}
+function rentFromTargetDeposit(dep0,rent0,newDeposit,ratePct=4.75,increasePct=5){
+  const x=calcRenthomeTarget(dep0,rent0,ratePct,increasePct);
+  if(!x)return 0;
+  return Math.max(0,Math.round((x.target-newDeposit)*x.rate/12));
+}
+function actualIncreaseRate(dep0,rent0,dep1,rent1,ratePct=4.75){
+  const rate=Number(ratePct)/100;
+  if(!(rate>0))return 0;
+  const before=dep0+(rent0*12)/rate;
+  const after=dep1+(rent1*12)/rate;
+  return before>0?((after-before)/before*100):0;
+}
+
 function daysTo(date){ if(!date)return null; const a=new Date();a.setHours(0,0,0,0); const b=new Date(date+'T00:00:00'); return Math.ceil((b-a)/86400000)}
 function roomStatus(r){const d=daysTo(r.end); if(r.arrears?.some(x=>!x.paid)) return ['미납','late']; if(d!==null && d>=0 && d<=180)return ['만기임박','due']; if(r.tenant)return ['정상','has']; return ['공실',''];}
 function renderHome(){
@@ -278,6 +329,90 @@ function openRoomFrom(source,pid,rid,target=''){detailReturn=source==='contracts
 function scrollDetailTarget(target){const el=document.getElementById(target==='memo'?'memoSection':target==='arrears'?'arrearsSection':'');if(el){el.scrollIntoView({behavior:'smooth',block:'start'});el.classList.add('targetFlash');setTimeout(()=>el.classList.remove('targetFlash'),1900)}}
 function backFromDetail(){if(detailReturn.view==='contracts')showContracts(detailReturn.filter||'all');else showHome()}
 function getPR(){const p=state.properties.find(x=>x.id==current.propertyId); return [p,p?.rooms.find(x=>x.id==current.roomId)]}
+
+function snapshotCurrentLease(r){
+  return {
+    id:uid('lease'),
+    tenant:r.tenant||'',
+    phone:r.phone||'',
+    deposit:r.deposit||'',
+    rent:r.rent||'',
+    start:r.start||'',
+    end:r.end||'',
+    renewalClaim:r.renewalClaim||'미행사',
+    renewalClaimDate:r.renewalClaimDate||'',
+    increaseDepositBase:r.increaseDepositBase||'',
+    increaseDepositAmount:r.increaseDepositAmount||'',
+    increaseBase:r.increaseBase||'',
+    increaseAmount:r.increaseAmount||'',
+    renthomeRate:r.renthomeRate??4.75,
+    increaseTargetPct:r.increaseTargetPct??5,
+    increaseDate:r.increaseDate||'',
+    noticeDone:!!r.noticeDone,
+    noticeDate:r.noticeDate||'',
+    noticeMethod:r.noticeMethod||'문자',
+    renewalDecision:r.renewalDecision||'',
+    renewalDetail:r.renewalDetail||'',
+    contracts:JSON.parse(JSON.stringify(r.contracts||[])),
+    savedAt:Date.now()
+  };
+}
+function leaseLabel(n){
+  const names=['첫 번째','두 번째','세 번째','네 번째','다섯 번째','여섯 번째','일곱 번째','여덟 번째','아홉 번째','열 번째'];
+  return (names[n-1]||`${n}번째`)+' 계약';
+}
+function addNewLeaseContract(){
+  const [p,r]=getPR(); if(!r)return;
+  if(!(r.tenant||r.start||r.end||r.deposit||r.rent)){
+    alert('현재 계약정보를 먼저 입력한 뒤 새 계약을 추가하세요.'); return;
+  }
+  if(!confirm(`${leaseLabel((r.leaseHistory?.length||0)+2)}을 추가할까요?\n현재 계약은 종료 계약으로 보관됩니다.`)) return;
+  r.leaseHistory = r.leaseHistory||[];
+  r.leaseHistory.push(snapshotCurrentLease(r));
+  const prevEnd=r.end||'';
+  r.start='';
+  r.end='';
+  r.deposit=r.increaseDepositAmount||r.deposit||'';
+  r.rent=r.increaseAmount||r.rent||'';
+  r.renewalClaim='미행사';
+  r.renewalClaimDate='';
+  r.increaseDepositBase=r.deposit||'';
+  r.increaseDepositAmount='';
+  r.increaseBase=r.rent||'';
+  r.increaseAmount='';
+  r.increaseDate='';
+  r.noticeDone=false;
+  r.noticeDate='';
+  r.noticeMethod='문자';
+  r.renewalDecision='';
+  r.renewalDetail='';
+  r.contracts=[];
+  r.updatedAt=Date.now();
+  save(); renderDetail(); renderHome();
+  showToast('새 계약을 추가했습니다.');
+}
+function editPastLease(id){
+  const [p,r]=getPR(); const x=(r.leaseHistory||[]).find(v=>v.id===id); if(!x)return;
+  const start=prompt('계약 시작일',x.start||''); if(start===null)return;
+  const end=prompt('만기일',x.end||''); if(end===null)return;
+  const dep=prompt('보증금',x.deposit||''); if(dep===null)return;
+  const rent=prompt('월차임',x.rent||''); if(rent===null)return;
+  x.start=start;x.end=end;x.deposit=dep;x.rent=rent;x.savedAt=Date.now();
+  save();renderDetail();
+}
+function deletePastLease(id){
+  const [p,r]=getPR();
+  if(!confirm('이 이전 계약 이력을 삭제할까요?'))return;
+  r.leaseHistory=(r.leaseHistory||[]).filter(v=>v.id!==id);
+  save();renderDetail();
+}
+function showPastLease(id){
+  const [p,r]=getPR(); const x=(r.leaseHistory||[]).find(v=>v.id===id); if(!x)return;
+  const no=(r.leaseHistory||[]).findIndex(v=>v.id===id)+1;
+  const docs=(x.contracts||[]).length;
+  alert(`${leaseLabel(no)}\n\n세입자: ${x.tenant||'-'}\n기간: ${x.start||'-'} ~ ${x.end||'-'}\n보증금: ${x.deposit||'-'}\n월차임: ${x.rent||'-'}\n갱신청구권: ${x.renewalClaim||'-'}\n재계약/종료: ${x.renewalDetail||x.renewalDecision||'-'}\n계약서 사본: ${docs}개`);
+}
+
 function renderDetail(){
  const [p,r]=getPR(); if(!p||!r)return;
  const d=daysTo(r.end);
@@ -291,19 +426,51 @@ function renderDetail(){
    <div class="actions"><button class="btn small" onclick="editRoomNo()">호실수정</button><button class="btn small danger" onclick="deleteRoom()">호실삭제</button></div>
   </div>
  </div>
- <div class="section"><h2>기본정보</h2><div class="formgrid">
+ <div class="section">
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+    <div>
+      <h2 style="margin-bottom:4px">계약 이력</h2>
+      <div class="muted">재계약할 때 이전 계약을 남기고 새 계약을 추가합니다.</div>
+    </div>
+    <button class="btn primary small" onclick="addNewLeaseContract()">＋ 새 계약 추가</button>
+  </div>
+  ${(r.leaseHistory||[]).map((x,i)=>`<div class="contractHistoryCard">
+    <div class="contractHistoryHead">
+      <div class="contractHistoryTitle">${leaseLabel(i+1)}</div>
+      <span class="endedContractBadge">종료 계약</span>
+    </div>
+    <div class="contractHistoryMeta">${esc(x.start||'-')} ~ ${esc(x.end||'-')}<br>보증금 ${esc(x.deposit||'-')} · 월차임 ${esc(x.rent||'-')}</div>
+    <div class="actions">
+      <button class="btn small" onclick="showPastLease('${x.id}')">보기</button>
+      <button class="btn small" onclick="editPastLease('${x.id}')">수정</button>
+      <button class="btn small danger" onclick="deletePastLease('${x.id}')">삭제</button>
+    </div>
+  </div>`).join('')}
+  <div class="contractHistoryCard">
+    <div class="contractHistoryHead">
+      <div class="contractHistoryTitle">${leaseLabel((r.leaseHistory||[]).length+1)}</div>
+      <span class="currentContractBadge">현재 계약</span>
+    </div>
+    <div class="contractHistoryMeta">${esc(r.start||'-')} ~ ${esc(r.end||'-')}<br>보증금 ${esc(r.deposit||'-')} · 월차임 ${esc(r.rent||'-')}</div>
+  </div>
+</div>
+<div class="section"><h2>기본정보</h2><div class="formgrid">
    ${field('세입자','tenant',r.tenant)} ${field('대표 연락처','phone',r.phone||'')}
    ${field('보증금','deposit',r.deposit,'number')} ${field('월차임','rent',r.rent,'number')}
    ${field('임대차 시작일','start',r.start,'date')} ${field('만기일','end',r.end,'date')}
  </div><div class="actions"><button class="btn primary" onclick="saveBasic()">저장</button></div></div>
- <div class="section"><h2>계약관리</h2>
+ <div class="section"><h2>현재 계약 관리</h2>
    <div class="formgrid">
     <div><label>계약갱신청구권 행사 여부</label><select id="renewalClaim"><option ${r.renewalClaim==='미행사'?'selected':''}>미행사</option><option ${r.renewalClaim==='행사'?'selected':''}>행사</option><option ${r.renewalClaim==='해당없음'?'selected':''}>해당없음</option></select></div>
     ${field('행사일자','renewalClaimDate',r.renewalClaimDate,'date')}
-    ${field('5% 증액 기준 보증금','increaseDepositBase',r.increaseDepositBase||r.deposit,'number')}
-    ${field('5% 증액 기준 월차임','increaseBase',r.increaseBase||r.rent,'number')}
-    <div><label>5% 증액 후 보증금</label><input id="increaseDepositAmount" type="number" value="${esc(r.increaseDepositAmount||'')}"></div>
-    <div><label>5% 증액 후 월차임</label><input id="increaseAmount" type="number" value="${esc(r.increaseAmount||inc||'')}"></div>
+    <div class="full"><div class="rentCalcNote"><b>5% 증액 계산 · 렌트홈 방식 참고</b><br>보증금과 월차임을 환산보증금으로 함께 계산합니다. 증액 후 보증금을 바꾸면 5% 한도에 맞춰 월차임이 자동 계산되고, 자동 계산값은 직접 수정할 수 있습니다.</div></div>
+    <div><label>증액 기준 보증금</label><input id="increaseDepositBase" type="text" inputmode="text" value="${esc(r.increaseDepositBase||r.deposit||'')}" placeholder="예: 1000만원 또는 10,000,000원"><div class="moneyHelp">만원·원·쉼표 모두 입력 가능</div></div>
+    <div><label>증액 기준 월차임</label><input id="increaseBase" type="text" inputmode="text" value="${esc(r.increaseBase||r.rent||'')}" placeholder="예: 65만원 또는 650,000원"><div class="moneyHelp">만원·원·쉼표 모두 입력 가능</div></div>
+    <div><label>월차임 전환 산정률(%)</label><input id="renthomeRate" type="number" step="0.01" value="${esc(r.renthomeRate??4.75)}"></div>
+    <div><label>목표 인상률(%)</label><input id="increaseTargetPct" type="number" step="0.1" value="${esc(r.increaseTargetPct??5)}"></div>
+    <div><label>증액 후 보증금</label><input id="increaseDepositAmount" type="text" inputmode="text" value="${esc(r.increaseDepositAmount||r.increaseDepositBase||r.deposit||'')}" placeholder="직접 수정 가능"></div>
+    <div><label>증액 후 월차임</label><input id="increaseAmount" type="text" inputmode="text" value="${esc(r.increaseAmount||'')}" placeholder="자동 계산 후 직접 수정 가능"></div>
+    <div class="full"><div id="rentIncreaseSummary" class="calcResult"><strong>예상 인상률 계산 대기</strong></div></div>
     ${field('실제 증액일','increaseDate',r.increaseDate,'date')}
     <div class="full"><label>만기통보</label><div class="muted">${noticeText}</div></div>
     <div><label>통보 여부</label><select id="noticeDone"><option value="false" ${!r.noticeDone?'selected':''}>미통보</option><option value="true" ${r.noticeDone?'selected':''}>통보완료</option></select></div>
@@ -325,7 +492,7 @@ function renderDetail(){
    ${(r.repairs||[]).map(x=>itemRow(`${x.date||''} · ${esc(x.title||'수선')}`,`${Number(x.amount||0).toLocaleString()}원`,``,`editRepair('${x.id}')`,`deleteRepair('${x.id}')`)).join('')||'<div class="muted">등록된 수선내역 없음</div>'}
    <div class="actions"><button class="btn" onclick="addRepair()">＋ 수선내역 추가</button></div>
  </div>
- <div class="section"><h2>계약서 사본</h2>
+ <div class="section"><h2>현재 계약서 사본</h2>
    ${(r.contracts||[]).map(x=>`<div class="row"><div style="min-width:0"><b style="word-break:break-all">${esc(x.name)}</b><div class="muted">${x.date||''}</div></div><div class="actions"><button class="btn small primary" onclick="openContract('${x.id}')">미리보기</button><button class="btn small" onclick="renameContract('${x.id}')">수정</button><button class="btn small danger" onclick="deleteContract('${x.id}')">삭제</button></div></div>`).join('')||'<div class="muted">저장된 계약서 없음</div>'}
    <div class="actions"><label class="btn" style="cursor:pointer">＋ 계약서 파일<input type="file" accept="image/*,.pdf" hidden onchange="addContractFile(event)"/></label></div>
    <p class="muted">계약서 파일은 이 기기의 브라우저 저장공간에 보관되며, 암호화 백업에 함께 포함됩니다.</p>
@@ -335,13 +502,51 @@ function renderDetail(){
  </div>`;
  const base=document.getElementById('increaseBase'), amount=document.getElementById('increaseAmount');
  const depBase=document.getElementById('increaseDepositBase'),depAmount=document.getElementById('increaseDepositAmount');
- if(base&&amount) base.addEventListener('input',()=>{amount.value=base.value?Math.round(Number(base.value)*1.05):''});
- if(depBase&&depAmount) depBase.addEventListener('input',()=>{depAmount.value=depBase.value?Math.round(Number(depBase.value)*1.05):''});
+ const rhRate=document.getElementById('renthomeRate'),targetPct=document.getElementById('increaseTargetPct'),summary=document.getElementById('rentIncreaseSummary');
+ let manualRentEdit=false;
+
+ function updateRentIncreaseSummary(){
+   if(!base||!amount||!depBase||!depAmount)return;
+   const d0=parseMoneyInput(depBase.value), r0=parseMoneyInput(base.value);
+   const d1=parseMoneyInput(depAmount.value), r1=parseMoneyInput(amount.value);
+   const rate=Number(rhRate?.value||4.75), pct=Number(targetPct?.value||5);
+   const actual=actualIncreaseRate(d0,r0,d1,r1,rate);
+   if(summary){
+     const status=actual<=pct+0.0001?'한도 이내':'목표 인상률 초과';
+     summary.innerHTML=`<strong>현재 계산 인상률 ${actual.toFixed(2)}%</strong><div class="muted" style="margin-top:5px">목표 ${pct.toFixed(2)}% · ${status}</div>`;
+   }
+ }
+ function autoCalcRentFromDeposit(force=false){
+   if(!base||!amount||!depBase||!depAmount)return;
+   const d0=parseMoneyInput(depBase.value), r0=parseMoneyInput(base.value);
+   const d1=parseMoneyInput(depAmount.value);
+   const rate=Number(rhRate?.value||4.75), pct=Number(targetPct?.value||5);
+   if(!(d0||r0)){amount.value='';updateRentIncreaseSummary();return}
+   if(force||!manualRentEdit){
+     const rent=rentFromTargetDeposit(d0,r0,d1,rate,pct);
+     amount.value=rent?rent.toLocaleString('ko-KR')+'원':'0원';
+     manualRentEdit=false;
+   }
+   updateRentIncreaseSummary();
+ }
+ function setDefaultAfterDeposit(){
+   const d0=parseMoneyInput(depBase.value);
+   if(!parseMoneyInput(depAmount.value) && d0) depAmount.value=d0.toLocaleString('ko-KR')+'원';
+   autoCalcRentFromDeposit(true);
+ }
+ depBase?.addEventListener('input',()=>{if(!parseMoneyInput(depAmount.value))depAmount.value=depBase.value;autoCalcRentFromDeposit(true)});
+ base?.addEventListener('input',()=>autoCalcRentFromDeposit(true));
+ depAmount?.addEventListener('input',()=>autoCalcRentFromDeposit(true));
+ rhRate?.addEventListener('input',()=>autoCalcRentFromDeposit(true));
+ targetPct?.addEventListener('input',()=>autoCalcRentFromDeposit(true));
+ amount?.addEventListener('input',()=>{manualRentEdit=true;updateRentIncreaseSummary()});
+ [depBase,base,depAmount,amount].forEach(el=>el?.addEventListener('blur',()=>{if(el.value)el.value=formatMoneyInput(el.value);updateRentIncreaseSummary()}));
+ setDefaultAfterDeposit();
 }
 function field(label,id,val,type='text'){return `<div><label>${label}</label><input id="${id}" type="${type}" value="${esc(val??'')}"></div>`}
 function itemRow(a,b,main,edit,del){return `<div class="row"><div>${a}<div class="muted">${b}</div></div><div class="actions">${main?`<button class="btn small" onclick="${main}">상태</button>`:''}<button class="btn small" onclick="${edit}">수정</button><button class="btn small danger" onclick="${del}">삭제</button></div></div>`}
 function saveBasic(){const [p,r]=getPR();['tenant','phone','deposit','rent','start','end'].forEach(k=>r[k]=document.getElementById(k).value);r.updatedAt=Date.now();save();renderDetail();renderHome();showToast('저장했습니다.')}
-function saveContract(){const [p,r]=getPR();r.renewalClaim=renewalClaim.value;r.renewalClaimDate=renewalClaimDate.value;r.increaseDepositBase=increaseDepositBase.value;r.increaseDepositAmount=increaseDepositAmount.value;r.increaseBase=increaseBase.value;r.increaseAmount=increaseAmount.value;r.increaseDate=increaseDate.value;r.noticeDone=noticeDone.value==='true';r.noticeDate=noticeDate.value;r.noticeMethod=noticeMethod.value;r.renewalDecision=renewalDecision.value;r.renewalDetail=renewalDetail.value;r.updatedAt=Date.now();save();renderDetail();showToast('계약관리 내용을 저장했습니다.')}
+function saveContract(){const [p,r]=getPR();r.renewalClaim=renewalClaim.value;r.renewalClaimDate=renewalClaimDate.value;r.increaseDepositBase=increaseDepositBase.value;r.increaseDepositAmount=increaseDepositAmount.value;r.increaseBase=increaseBase.value;r.increaseAmount=increaseAmount.value;r.renthomeRate=renthomeRate.value;r.increaseTargetPct=increaseTargetPct.value;r.increaseDate=increaseDate.value;r.noticeDone=noticeDone.value==='true';r.noticeDate=noticeDate.value;r.noticeMethod=noticeMethod.value;r.renewalDecision=renewalDecision.value;r.renewalDetail=renewalDetail.value;r.updatedAt=Date.now();save();renderDetail();showToast('계약관리 내용을 저장했습니다.')}
 function saveMemo(){const [p,r]=getPR();r.memo=memo.value;r.updatedAt=Date.now();save();showToast('메모를 저장했습니다.')}
 function clearMemo(){if(!confirm('메모를 삭제할까요?'))return;memo.value='';saveMemo()}
 function addArrear(){const [p,r]=getPR();const month=prompt('미납 월 (예: 2026-08)'); if(!month)return; const amount=prompt('미납 금액'); if(amount===null)return;r.arrears.push({id:uid('a'),month,amount:Number(amount||0),paid:false});save();renderDetail();renderHome()}
@@ -437,7 +642,7 @@ async function downloadEncryptedBackup(){
   try{
     const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
     const key=await deriveAesKey(password,salt,['encrypt']);
-    const payload={format:'rental-manager-encrypted-backup',version:1,appVersion:'1.8',createdAt:new Date().toISOString(),state};
+    const payload={format:'rental-manager-encrypted-backup',version:1,appVersion:'1.8.2',createdAt:new Date().toISOString(),state};
     const plain=new TextEncoder().encode(JSON.stringify(payload));
     const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,plain);
     const envelope={format:'rental-manager-encrypted',version:1,kdf:'PBKDF2-SHA256',iterations:210000,cipher:'AES-256-GCM',salt:bytesToB64(salt),iv:bytesToB64(iv),data:bytesToB64(new Uint8Array(cipher))};
