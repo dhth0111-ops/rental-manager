@@ -199,8 +199,8 @@ textarea{min-height:100px;resize:vertical}
     </div>
 
     <div class="section versionCard">
-      <div style="font-weight:800;font-size:18px">임대관리 v1.8.5</div>
-      <div class="muted" style="margin-top:6px">계약서·메모 저장 즉시반영 · 2026-08-11</div>
+      <div style="font-weight:800;font-size:18px">임대관리 v1.9.0</div>
+      <div class="muted" style="margin-top:6px">저장 안정화 · 계약별 계약서 · 직접수정 보호 · 2026-08-11</div>
     </div>
   </div>
 </div>
@@ -245,24 +245,31 @@ function makeRoom(id,no,type){
  increaseBase:'',increaseRate:5,increaseAmount:'',increaseDate:'',noticeDone:false,noticeDate:'',noticeMethod:'문자',
  arrears:[], repairs:[], contracts:[], memo:'', updatedAt:Date.now()};
 }
-function load(){
- try{state=JSON.parse(localStorage.getItem(KEY))||structuredClone(seed)}catch(e){state=structuredClone(seed)}
+const DB_NAME='rentalManagerDB';
+const DB_STORE='appState';
+function openStateDB(){return new Promise((resolve,reject)=>{const q=indexedDB.open(DB_NAME,1);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains(DB_STORE))q.result.createObjectStore(DB_STORE)};q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}
+async function readIndexedState(){try{const db=await openStateDB();return await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,'readonly');const q=tx.objectStore(DB_STORE).get('state');q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>reject(q.error)})}catch(_){return null}}
+async function writeIndexedState(snapshot){try{const db=await openStateDB();await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).put(snapshot,'state');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});return true}catch(_){return false}}
+async function load(){
+ let saved=await readIndexedState();
+ if(!saved){try{saved=JSON.parse(localStorage.getItem(KEY))}catch(_){saved=null}}
+ state=saved||structuredClone(seed);
  state.properties.forEach(p=>{if(p.address===undefined)p.address='';p.rooms.forEach(r=>{
    if(!r.contacts) r.contacts = r.phone ? [{id:uid('ct'),label:'연락처',value:r.phone}] : [];
    if(!r.memos) r.memos = r.memo ? [{id:uid('m'),date:new Date().toISOString().slice(0,10),text:r.memo}] : [];
-   if(r.increaseBase===undefined) r.increaseBase='';
-   if(r.increaseAmount===undefined) r.increaseAmount='';
-   if(r.increaseDepositBase===undefined) r.increaseDepositBase=r.deposit||'';
-   if(r.increaseDepositAmount===undefined) r.increaseDepositAmount='';
-   if(r.renthomeRate===undefined) r.renthomeRate=4.75;
-   if(r.increaseTargetPct===undefined) r.increaseTargetPct=5;
-   if(r.renewalDecision===undefined) r.renewalDecision='';
-   if(r.renewalDetail===undefined) r.renewalDetail='';
-   if(!Array.isArray(r.leaseHistory)) r.leaseHistory=[];
+   if(r.increaseBase===undefined) r.increaseBase=''; if(r.increaseAmount===undefined) r.increaseAmount='';
+   if(r.increaseDepositBase===undefined) r.increaseDepositBase=r.deposit||''; if(r.increaseDepositAmount===undefined) r.increaseDepositAmount='';
+   if(r.renthomeRate===undefined) r.renthomeRate=4.75; if(r.increaseTargetPct===undefined) r.increaseTargetPct=5;
+   if(r.renewalDecision===undefined) r.renewalDecision=''; if(r.renewalDetail===undefined) r.renewalDetail='';
+   if(!Array.isArray(r.leaseHistory)) r.leaseHistory=[]; if(!Array.isArray(r.contracts)) r.contracts=[];
  });});
- save(); renderHome();
+ await save(); renderHome();
 }
-function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function save(){
+ const snapshot=structuredClone(state);
+ try{localStorage.setItem(KEY,JSON.stringify(snapshot))}catch(e){console.warn('localStorage quota; IndexedDB 저장을 계속합니다.',e)}
+ return writeIndexedState(snapshot);
+}
 function uid(p='id'){return p+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
 function moneyDisplay(v){if(v===null||v===undefined||v==='')return '-';const raw=String(v).trim();const n=Number(raw.replace(/,/g,''));return Number.isFinite(n)?n.toLocaleString('ko-KR'):raw}
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -501,7 +508,7 @@ function renderDetail(){
 </div>
 <div class="section"><h2>기본정보</h2><div class="formgrid">
    ${field('세입자','tenant',r.tenant)} ${field('대표 연락처','phone',r.phone||'')}
-   ${field('보증금','deposit',r.deposit,'number')} ${field('월차임','rent',r.rent,'number')}
+   <div><label>보증금</label><input id="deposit" type="text" inputmode="numeric" value="${esc(moneyDisplay(r.deposit)==='-'?'':moneyDisplay(r.deposit))}" placeholder="예: 10,000,000"></div> <div><label>월차임</label><input id="rent" type="text" inputmode="numeric" value="${esc(moneyDisplay(r.rent)==='-'?'':moneyDisplay(r.rent))}" placeholder="예: 620,000"></div>
    ${field('임대차 시작일','start',r.start,'date')} ${field('만기일','end',r.end,'date')}
  </div><div class="actions"><button class="btn primary" onclick="saveBasic()">저장</button></div></div>
  <div class="section"><h2>현재 계약 관리</h2>
@@ -521,7 +528,7 @@ function renderDetail(){
     <div><label>통보 여부</label><select id="noticeDone"><option value="false" ${!r.noticeDone?'selected':''}>미통보</option><option value="true" ${r.noticeDone?'selected':''}>통보완료</option></select></div>
     ${field('통보일','noticeDate',r.noticeDate,'date')}
     <div><label>통보방법</label><select id="noticeMethod">${['문자','카톡','전화','내용증명','기타'].map(x=>`<option ${r.noticeMethod===x?'selected':''}>${x}</option>`).join('')}</select></div>
-    <div><label>재계약 여부</label><select id="renewalDecision"><option value="">선택</option><option ${r.renewalDecision==='연장'?'selected':''}>연장</option><option ${r.renewalDecision==='만기이사'?'selected':''}>만기이사</option></select></div>
+    <div><label>재계약 여부</label><select id="renewalDecision"><option value="">선택</option><option ${r.renewalDecision==='연장'?'selected':''}>연장</option><option ${r.renewalDecision==='계약갱신청구권 사용 이사'?'selected':''}>계약갱신청구권 사용 이사</option><option ${r.renewalDecision==='만기이사'?'selected':''}>만기이사</option></select></div>
     <div><label>계약 종료/연장 구분</label><select id="renewalDetail"><option value="">선택</option><option ${r.renewalDetail==='재계약'?'selected':''}>재계약</option><option ${r.renewalDetail==='계약갱신청구권 사용 이사'?'selected':''}>계약갱신청구권 사용 이사</option><option ${r.renewalDetail==='만기이사'?'selected':''}>만기이사</option></select></div>
    </div><div class="actions"><button class="btn primary" onclick="saveContract()">저장</button></div>
  </div>
@@ -537,7 +544,7 @@ function renderDetail(){
    ${(r.repairs||[]).map(x=>itemRow(`${x.date||''} · ${esc(x.title||'수선')}`,`${Number(x.amount||0).toLocaleString()}원`,``,`editRepair('${x.id}')`,`deleteRepair('${x.id}')`)).join('')||'<div class="muted">등록된 수선내역 없음</div>'}
    <div class="actions"><button class="btn" onclick="addRepair()">＋ 수선내역 추가</button></div>
  </div>
- <div class="section"><h2>현재 계약서 사본</h2><div class="muted" style="margin-bottom:10px">새 계약을 추가하면 이 계약서도 해당 종료 계약 이력에 함께 보관됩니다.</div>
+ <div class="section"><h2>${leaseLabel((r.leaseHistory||[]).length+1)} 계약서 사본</h2><div class="muted" style="margin-bottom:10px">현재 계약의 계약서입니다. 새 계약을 추가하면 이 계약서도 해당 종료 계약 이력에 함께 보관됩니다.</div>
    ${(r.contracts||[]).map(x=>`<div class="row"><div style="min-width:0"><b style="word-break:break-all">${esc(x.name)}</b><div class="muted">${x.date||''}</div></div><div class="actions"><button class="btn small primary" onclick="openContract('${x.id}')">미리보기</button><button class="btn small" onclick="renameContract('${x.id}')">수정</button><button class="btn small danger" onclick="deleteContract('${x.id}')">삭제</button></div></div>`).join('')||'<div class="muted">저장된 계약서 없음</div>'}
    <div class="actions">
      <label class="btn" style="cursor:pointer">＋ 계약서 파일<input type="file" accept="image/*,.pdf" hidden onchange="addContractFile(event)"/></label>
@@ -556,7 +563,7 @@ function renderDetail(){
  const base=document.getElementById('increaseBase'), amount=document.getElementById('increaseAmount');
  const depBase=document.getElementById('increaseDepositBase'),depAmount=document.getElementById('increaseDepositAmount');
  const rhRate=document.getElementById('renthomeRate'),targetPct=document.getElementById('increaseTargetPct'),summary=document.getElementById('rentIncreaseSummary');
- let manualRentEdit=false;
+ let manualRentEdit=!!String(r.increaseAmount||'').trim();
 
  function updateRentIncreaseSummary(){
    if(!base||!amount||!depBase||!depAmount)return;
@@ -594,24 +601,45 @@ function renderDetail(){
  targetPct?.addEventListener('input',()=>autoCalcRentFromDeposit(true));
  amount?.addEventListener('input',()=>{manualRentEdit=true;updateRentIncreaseSummary()});
  [depBase,base,depAmount,amount].forEach(el=>el?.addEventListener('blur',()=>{if(el.value)el.value=formatMoneyInput(el.value);updateRentIncreaseSummary()}));
- setDefaultAfterDeposit();
+ if(!parseMoneyInput(depAmount.value) && parseMoneyInput(depBase.value)) depAmount.value=formatMoneyInput(depBase.value);
+ if(!manualRentEdit) autoCalcRentFromDeposit(true); else updateRentIncreaseSummary();
+ const depInput=document.getElementById('deposit'),rentInput=document.getElementById('rent');
+ function formatBasicMoney(el){
+   if(!el)return;
+   const text=String(el.value||'').trim();
+   if(text===''){el.value='';return}
+   const n=parseMoneyInput(text);
+   if(Number.isFinite(n))el.value=Math.round(n).toLocaleString('ko-KR');
+ }
+ depInput?.addEventListener('input',()=>formatBasicMoney(depInput));
+ rentInput?.addEventListener('input',()=>formatBasicMoney(rentInput));
+ depInput?.addEventListener('blur',()=>formatBasicMoney(depInput));
+ rentInput?.addEventListener('blur',()=>formatBasicMoney(rentInput));
+
 }
 function field(label,id,val,type='text'){return `<div><label>${label}</label><input id="${id}" type="${type}" value="${esc(val??'')}"></div>`}
 function itemRow(a,b,main,edit,del){return `<div class="row"><div>${a}<div class="muted">${b}</div></div><div class="actions">${main?`<button class="btn small" onclick="${main}">상태</button>`:''}<button class="btn small" onclick="${edit}">수정</button><button class="btn small danger" onclick="${del}">삭제</button></div></div>`}
-function saveBasic(){const [p,r]=getPR();['tenant','phone','deposit','rent','start','end'].forEach(k=>r[k]=document.getElementById(k).value);r.updatedAt=Date.now();save();renderDetail();renderHome();showToast('저장했습니다.')}
+function saveBasic(){
+ const [p,r]=getPR();
+ r.tenant=tenant.value;r.phone=phone.value;
+ r.deposit=String(Math.round(parseMoneyInput(deposit.value)||0));
+ r.rent=String(Math.round(parseMoneyInput(rent.value)||0));
+ r.start=start.value;r.end=end.value;
+ r.updatedAt=Date.now();save();renderDetail();renderHome();showToast('저장했습니다.');
+}
 function saveContract(){const [p,r]=getPR();r.renewalClaim=renewalClaim.value;r.renewalClaimDate=renewalClaimDate.value;r.increaseDepositBase=increaseDepositBase.value;r.increaseDepositAmount=increaseDepositAmount.value;r.increaseBase=increaseBase.value;r.increaseAmount=increaseAmount.value;r.renthomeRate=renthomeRate.value;r.increaseTargetPct=increaseTargetPct.value;r.increaseDate=increaseDate.value;r.noticeDone=noticeDone.value==='true';r.noticeDate=noticeDate.value;r.noticeMethod=noticeMethod.value;r.renewalDecision=renewalDecision.value;r.renewalDetail=renewalDetail.value;r.updatedAt=Date.now();save();renderDetail();showToast('계약관리 내용을 저장했습니다.')}
 function saveMemo(){const [p,r]=getPR();r.memo=memo.value;r.updatedAt=Date.now();save();showToast('메모를 저장했습니다.')}
 function clearMemo(){if(!confirm('메모를 삭제할까요?'))return;memo.value='';saveMemo()}
-function addArrear(){const [p,r]=getPR();const month=prompt('미납 월 (예: 2026-08)'); if(!month)return; const amount=prompt('미납 금액'); if(amount===null)return;r.arrears.push({id:uid('a'),month,amount:Number(amount||0),paid:false});save();renderDetail();renderHome()}
-function editArrear(id){const [p,r]=getPR(),a=r.arrears.find(x=>x.id==id);const m=prompt('미납 월',a.month);if(m===null)return;const amt=prompt('금액',a.amount);if(amt===null)return;a.month=m;a.amount=Number(amt||0);save();renderDetail()}
+function addArrear(){const [p,r]=getPR();const month=prompt('미납 월 (예: 2026-08)'); if(!month)return; const amount=prompt('미납 금액'); if(amount===null)return;r.arrears.push({id:uid('a'),month,amount:Math.round(parseMoneyInput(amount)||0),paid:false});save();renderDetail();renderHome()}
+function editArrear(id){const [p,r]=getPR(),a=r.arrears.find(x=>x.id==id);const m=prompt('미납 월',a.month);if(m===null)return;const amt=prompt('금액',a.amount);if(amt===null)return;a.month=m;a.amount=Math.round(parseMoneyInput(amt)||0);save();renderDetail();renderHome()}
 function deleteArrear(id){const [p,r]=getPR();if(!confirm('이 미납내역을 삭제할까요?'))return;r.arrears=r.arrears.filter(x=>x.id!=id);save();renderDetail();renderHome()}
 function toggleArrear(id){const [p,r]=getPR(),a=r.arrears.find(x=>x.id==id);a.paid=!a.paid;save();renderDetail();renderHome()}
-function addRepair(){const [p,r]=getPR();const title=prompt('수선 내용');if(!title)return;const amount=prompt('수선비');if(amount===null)return;const date=prompt('날짜 (YYYY-MM-DD)',new Date().toISOString().slice(0,10));r.repairs.push({id:uid('rp'),title,amount:Number(amount||0),date});save();renderDetail()}
+function addRepair(){const [p,r]=getPR();const title=prompt('수선 내용');if(!title)return;const amount=prompt('수선비');if(amount===null)return;const date=prompt('날짜 (YYYY-MM-DD)',new Date().toISOString().slice(0,10));r.repairs.push({id:uid('rp'),title,amount:Math.round(parseMoneyInput(amount)||0),date});save();renderDetail()}
 function editRepair(id){const [p,r]=getPR(),x=r.repairs.find(v=>v.id==id);const t=prompt('수선 내용',x.title);if(t===null)return;const a=prompt('수선비',x.amount);if(a===null)return;const d=prompt('날짜',x.date);x.title=t;x.amount=Number(a||0);x.date=d;save();renderDetail()}
 function deleteRepair(id){const [p,r]=getPR();if(!confirm('이 수선내역을 삭제할까요?'))return;r.repairs=r.repairs.filter(x=>x.id!=id);save();renderDetail()}
 
-function refreshAfterSectionSave(message){
-  save();
+async function refreshAfterSectionSave(message){
+  await save();
   renderDetail();
   renderHome();
   showToast(message);
@@ -719,7 +747,7 @@ async function downloadEncryptedBackup(){
   try{
     const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
     const key=await deriveAesKey(password,salt,['encrypt']);
-    const payload={format:'rental-manager-encrypted-backup',version:1,appVersion:'1.8.5',createdAt:new Date().toISOString(),state};
+    const payload={format:'rental-manager-encrypted-backup',version:1,appVersion:'1.9.0',createdAt:new Date().toISOString(),state};
     const plain=new TextEncoder().encode(JSON.stringify(payload));
     const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,plain);
     const envelope={format:'rental-manager-encrypted',version:1,kdf:'PBKDF2-SHA256',iterations:210000,cipher:'AES-256-GCM',salt:bytesToB64(salt),iv:bytesToB64(iv),data:bytesToB64(new Uint8Array(cipher))};
@@ -741,7 +769,7 @@ function restoreEncryptedBackup(event){
       const payload=JSON.parse(new TextDecoder().decode(plain));
       if(payload.format!=='rental-manager-encrypted-backup'||!payload.state?.properties)throw new Error('payload');
       if(!confirm('현재 임대자료를 이 암호화 백업 내용으로 바꿀까요?'))return;
-      state=payload.state;save();renderHome();showDashboard();showToast('암호화 백업을 복원했습니다.');
+      state=payload.state;await save();renderHome();showDashboard();showToast('암호화 백업을 복원했습니다.');
     }catch(_){alert('복원할 수 없습니다. 백업 암호가 틀렸거나 파일이 손상되었습니다.')}
   };
   rd.readAsText(file);
@@ -780,9 +808,7 @@ function showRentalList(){renderHome();showView('home');navHome.classList.remove
 function showSettings(){showView('settings');window.scrollTo({top:0,behavior:'smooth'})}
 function showLastDetail(){showRentalList()}
 function showToast(t){toast.textContent=t;toast.style.display='block';setTimeout(()=>toast.style.display='none',1800)}
-load();
-updateLockStatus();
-if(getLockCfg())showLock();else appUnlocked=true;
+(async()=>{await load();updateLockStatus();if(getLockCfg())showLock();else appUnlocked=true;})();
 document.getElementById('unlockPassword')?.addEventListener('keydown',e=>{if(e.key==='Enter')unlockApp()});
 
 function quickMemo(){
@@ -814,6 +840,8 @@ async function installApp(){
   if(b) b.classList.remove('hidden');
 }
 window.addEventListener('appinstalled',()=>showToast('임대관리 앱 설치가 완료되었습니다.'));
+window.addEventListener('pageshow',()=>{if(state?.properties){renderHome();if(current?.roomId)renderDetail();}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&state?.properties)save();});
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 }
