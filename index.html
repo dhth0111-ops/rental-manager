@@ -122,6 +122,14 @@ textarea{min-height:100px;resize:vertical}
 .contractHistoryTitle{font-weight:800}.contractHistoryMeta{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.5}
 .currentContractBadge{display:inline-block;background:#e8f2ff;color:#1557b0;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:700}
 .endedContractBadge{display:inline-block;background:#f0f1f3;color:#687386;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:700}
+
+.topActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.btn.exit{color:#b42318;background:#fff;border-color:#f0b4b4}
+.noticeGuide{background:#fff7f7;border:1px solid #f0caca;border-radius:14px;padding:12px 14px;margin:12px 0;color:#603333;line-height:1.6;font-size:13px}
+.noticeAlert{color:#d64545;font-weight:800;white-space:nowrap}
+.exitOverlay{position:fixed;inset:0;z-index:500;background:#f4f7fb;display:flex;align-items:center;justify-content:center;padding:22px}
+.exitCard{width:min(420px,100%);background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;text-align:center;box-shadow:0 14px 42px rgba(0,0,0,.10)}
+.exitCard .icon{font-size:42px}.exitCard h2{margin:10px 0 6px}.exitCard p{color:var(--muted);font-size:13px;line-height:1.6}
 </style>
 </head>
 <body>
@@ -144,7 +152,7 @@ textarea{min-height:100px;resize:vertical}
 <div class="wrap">
   <div class="top">
     <div><h1>임대관리</h1><div class="sub">계약 · 월세 · 만기 · 수선 · 계약서 · 메모</div></div>
-    <button class="btn primary" onclick="openPropertyModal()">＋ 임대물건</button>
+    <div class="topActions"><button class="btn primary" onclick="openPropertyModal()">＋ 임대물건</button><button class="btn exit" onclick="exitApp()">종료</button></div>
   </div>
 
   <div id="homeView">
@@ -199,8 +207,8 @@ textarea{min-height:100px;resize:vertical}
     </div>
 
     <div class="section versionCard">
-      <div style="font-weight:800;font-size:18px">임대관리 v1.9.0</div>
-      <div class="muted" style="margin-top:6px">저장 안정화 · 계약별 계약서 · 직접수정 보호 · 2026-08-11</div>
+      <div style="font-weight:800;font-size:18px">임대관리 v1.9.1</div>
+      <div class="muted" style="margin-top:6px">계약갱신·만기통보·종료 안정화 · 2026-08-11</div>
     </div>
   </div>
 </div>
@@ -215,6 +223,10 @@ textarea{min-height:100px;resize:vertical}
     <div class="actions" style="justify-content:center;margin-top:14px"><button class="btn primary" onclick="unlockApp()">잠금 해제</button></div>
     <div id="unlockMsg" class="muted" style="margin-top:10px"></div>
   </div>
+</div>
+
+<div id="exitOverlay" class="exitOverlay hidden">
+  <div class="exitCard"><div class="icon">🔒</div><h2>임대관리 종료</h2><p>자료를 저장하고 앱 사용을 종료했습니다.<br>기기에서 창이 자동으로 닫히지 않는 경우 이 화면에서 앱을 닫아도 안전합니다.</p><button class="btn primary" onclick="resumeApp()">다시 열기</button></div>
 </div>
 
 <div class="nav">
@@ -327,7 +339,7 @@ function renderHome(){
  const memoItems=all.flatMap(x=>(x.r.memos||[]).map(m=>({...x,m}))).sort((a,b)=>(b.m.date||'').localeCompare(a.m.date||'')).slice(0,3);
  const lateItems=all.flatMap(x=>(x.r.arrears||[]).filter(a=>!a.paid).map(a=>({...x,a}))).slice(0,3);
  dashboardExtras.innerHTML=`
-  <div class="dashboardSection clickable" onclick="showContracts('due')"><h2>계약 만기 예정</h2>${dueItems.length?dueItems.map(x=>`<div class="dashItem" onclick="event.stopPropagation();openRoom('${x.p.id}','${x.r.id}')"><div><b>${esc(x.r.tenant)} (${esc(x.r.no)}호)</b><div class="muted">${x.r.end} 만기</div></div><b>D-${daysTo(x.r.end)}</b></div>`).join(''):'<div class="muted">다가오는 만기 없음</div>'}</div>
+  <div class="dashboardSection clickable" onclick="showContracts('due')"><h2>계약 만기 예정</h2>${dueItems.length?dueItems.map(x=>`<div class="dashItem" onclick="event.stopPropagation();openRoom('${x.p.id}','${x.r.id}')"><div><b>${esc(x.r.tenant)} (${esc(x.r.no)}호)</b><div class="muted">${x.r.end} 만기 · ${noticeRuleText(x.r.type)}</div>${needsExpiryNotice(x.r)?'<div class="noticeAlert">🔴★ 만기통보</div>':''}</div><b>D-${daysTo(x.r.end)}</b></div>`).join(''):'<div class="muted">다가오는 만기 없음</div>'}</div>
   <div class="dashboardSection"><h2>최근 메모</h2>${memoItems.length?memoItems.map(x=>`<div class="dashItem" onclick="openRoomFrom('home','${x.p.id}','${x.r.id}','memo')"><div><b>${esc(x.m.date||'')}</b><div>${esc(x.m.text||'')}</div></div></div>`).join(''):'<div class="muted">최근 메모 없음</div>'}</div>
   <div class="dashboardSection"><h2>최근 미납월세</h2>${lateItems.length?lateItems.map(x=>`<div class="dashItem" onclick="openRoomFrom('home','${x.p.id}','${x.r.id}','arrears')"><div><b>${esc(x.r.tenant||x.r.no+'호')}</b><div class="muted">${esc(x.a.month)} · ${Number(x.a.amount||0).toLocaleString()}원</div></div><span class="badge danger">미납</span></div>`).join(''):'<div class="muted">미납 내역 없음</div>'}</div>`;
 }
@@ -454,6 +466,32 @@ function showPastLease(id){
   alert(`${leaseLabel(no)}\n\n세입자: ${x.tenant||'-'}\n기간: ${x.start||'-'} ~ ${x.end||'-'}\n보증금: ${moneyDisplay(x.deposit)}\n월차임: ${moneyDisplay(x.rent)}\n갱신청구권: ${x.renewalClaim||'-'}\n재계약/종료: ${x.renewalDetail||x.renewalDecision||'-'}\n계약서 사본: ${docs}개`);
 }
 
+
+function showCurrentLease(){
+ const [p,r]=getPR(); if(!r)return;
+ const no=(r.leaseHistory||[]).length+1;
+ alert(`${leaseLabel(no)}\n\n세입자: ${r.tenant||'-'}\n기간: ${r.start||'-'} ~ ${r.end||'-'}\n보증금: ${moneyDisplay(r.deposit)}\n월차임: ${moneyDisplay(r.rent)}\n갱신청구권: ${r.renewalClaim||'-'}\n재계약/종료: ${r.renewalDetail||r.renewalDecision||'-'}\n계약서 사본: ${(r.contracts||[]).length}개`);
+}
+function editCurrentLease(){
+ const [p,r]=getPR(); if(!r)return;
+ const start=prompt('계약 시작일',r.start||''); if(start===null)return;
+ const end=prompt('만기일',r.end||''); if(end===null)return;
+ const dep=prompt('보증금',r.deposit||''); if(dep===null)return;
+ const rent=prompt('월차임',r.rent||''); if(rent===null)return;
+ r.start=start;r.end=end;r.deposit=String(dep).replace(/,/g,'');r.rent=String(rent).replace(/,/g,'');r.updatedAt=Date.now();
+ save();renderDetail();renderHome();showToast('현재 계약을 수정했습니다.');
+}
+function deleteCurrentLease(){
+ const [p,r]=getPR(); if(!r)return;
+ if(!confirm(`${leaseLabel((r.leaseHistory||[]).length+1)}의 현재 계약정보를 삭제할까요?\n이전 종료 계약 이력은 그대로 남습니다.`))return;
+ r.tenant='';r.phone='';r.deposit='';r.rent='';r.start='';r.end='';
+ r.renewalClaim='미행사';r.renewalClaimDate='';r.increaseDepositBase='';r.increaseDepositAmount='';r.increaseBase='';r.increaseAmount='';r.increaseDate='';
+ r.noticeDone=false;r.noticeDate='';r.noticeMethod='문자';r.renewalDecision='';r.renewalDetail='';r.contracts=[];r.updatedAt=Date.now();
+ save();renderDetail();renderHome();showToast('현재 계약을 삭제했습니다.');
+}
+function noticeRuleText(type){return type==='주택'?'주택: 만기 6개월 전 ~ 2개월 전':'상가: 만기 6개월 전 ~ 1개월 전'}
+function needsExpiryNotice(r){const d=daysTo(r.end);return !!r.tenant && d!==null && d>=0 && d<=180 && !r.noticeDone}
+
 function renderDetail(){
  const [p,r]=getPR(); if(!p||!r)return;
  const d=daysTo(r.end);
@@ -503,7 +541,8 @@ function renderDetail(){
       <div class="contractHistoryTitle">${leaseLabel((r.leaseHistory||[]).length+1)}</div>
       <span class="currentContractBadge">현재 계약</span>
     </div>
-    <div class="contractHistoryMeta">${esc(r.start||'-')} ~ ${esc(r.end||'-')}<br>보증금 ${moneyDisplay(r.deposit)} · 월차임 ${moneyDisplay(r.rent)}</div>
+    <div class="contractHistoryMeta">${esc(r.start||'-')} ~ ${esc(r.end||'-')}<br>보증금 ${moneyDisplay(r.deposit)} · 월차임 ${moneyDisplay(r.rent)}${(r.contracts||[]).length?`<br>계약서 사본 ${(r.contracts||[]).length}개`:''}</div>
+    <div class="actions"><button class="btn small" onclick="showCurrentLease()">계약내용 보기</button><button class="btn small" onclick="editCurrentLease()">수정</button><button class="btn small danger" onclick="deleteCurrentLease()">삭제</button></div>
   </div>
 </div>
 <div class="section"><h2>기본정보</h2><div class="formgrid">
@@ -528,8 +567,8 @@ function renderDetail(){
     <div><label>통보 여부</label><select id="noticeDone"><option value="false" ${!r.noticeDone?'selected':''}>미통보</option><option value="true" ${r.noticeDone?'selected':''}>통보완료</option></select></div>
     ${field('통보일','noticeDate',r.noticeDate,'date')}
     <div><label>통보방법</label><select id="noticeMethod">${['문자','카톡','전화','내용증명','기타'].map(x=>`<option ${r.noticeMethod===x?'selected':''}>${x}</option>`).join('')}</select></div>
-    <div><label>재계약 여부</label><select id="renewalDecision"><option value="">선택</option><option ${r.renewalDecision==='연장'?'selected':''}>연장</option><option ${r.renewalDecision==='계약갱신청구권 사용 이사'?'selected':''}>계약갱신청구권 사용 이사</option><option ${r.renewalDecision==='만기이사'?'selected':''}>만기이사</option></select></div>
-    <div><label>계약 종료/연장 구분</label><select id="renewalDetail"><option value="">선택</option><option ${r.renewalDetail==='재계약'?'selected':''}>재계약</option><option ${r.renewalDetail==='계약갱신청구권 사용 이사'?'selected':''}>계약갱신청구권 사용 이사</option><option ${r.renewalDetail==='만기이사'?'selected':''}>만기이사</option></select></div>
+    <div><label>재계약 여부</label><select id="renewalDecision"><option value="">선택</option><option ${r.renewalDecision==='연장'?'selected':''}>연장</option><option ${r.renewalDecision==='계약갱신청구권 사용 연장'?'selected':''}>계약갱신청구권 사용 연장</option><option ${r.renewalDecision==='계약갱신청구권 사용 이사'?'selected':''}>계약갱신청구권 사용 이사</option><option ${r.renewalDecision==='만기이사'?'selected':''}>만기이사</option></select></div>
+    <div><label>계약 종료/연장 구분</label><select id="renewalDetail"><option value="">선택</option><option ${r.renewalDetail==='재계약'?'selected':''}>재계약</option><option ${r.renewalDetail==='계약갱신청구권 사용 연장'?'selected':''}>계약갱신청구권 사용 연장</option><option ${r.renewalDetail==='계약갱신청구권 사용 이사'?'selected':''}>계약갱신청구권 사용 이사</option><option ${r.renewalDetail==='만기이사'?'selected':''}>만기이사</option></select></div>
    </div><div class="actions"><button class="btn primary" onclick="saveContract()">저장</button></div>
  </div>
  <div class="section"><h2>연락처</h2>
@@ -747,7 +786,7 @@ async function downloadEncryptedBackup(){
   try{
     const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
     const key=await deriveAesKey(password,salt,['encrypt']);
-    const payload={format:'rental-manager-encrypted-backup',version:1,appVersion:'1.9.0',createdAt:new Date().toISOString(),state};
+    const payload={format:'rental-manager-encrypted-backup',version:1,appVersion:'1.9.1',createdAt:new Date().toISOString(),state};
     const plain=new TextEncoder().encode(JSON.stringify(payload));
     const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,plain);
     const envelope={format:'rental-manager-encrypted',version:1,kdf:'PBKDF2-SHA256',iterations:210000,cipher:'AES-256-GCM',salt:bytesToB64(salt),iv:bytesToB64(iv),data:bytesToB64(new Uint8Array(cipher))};
@@ -795,10 +834,10 @@ function showContracts(filter='all'){
  }).filter(g=>g.rooms.length || filter==='all');
  contractsView.innerHTML=`
  <div class="backline"><button class="btn small" onclick="showHome()">← 홈</button><h2 style="margin:0">전체 계약 현황</h2></div>
- <div class="contractOverview"><div class="muted">지번주소와 물건지별로 계약을 구분해 확인합니다.</div>
+ <div class="contractOverview"><div class="muted">지번주소와 물건지별로 계약을 구분해 확인합니다.</div>${filter==='due'?`<div class="noticeGuide"><b>🔴★ 만기통보 안내</b><br>만기일 180일 전부터 알림을 표시합니다.<br><b>주택</b> · 만기 6개월 전 ~ 2개월 전 &nbsp; / &nbsp; <b>상가</b> · 만기 6개월 전 ~ 1개월 전<br>통보완료로 저장하면 빨간 만기통보 표시가 사라집니다.</div>`:''}
  <div class="contractToolbar">${['all','active','late','due'].map(k=>`<button class="filterBtn ${filter===k?'active':''}" onclick="showContracts('${k}')">${labels[k]}</button>`).join('')}</div>
  ${groups.length?groups.map(g=>`<section class="propertyContractGroup"><div class="propertyContractHead"><div class="propertyAddress">${g.p.address?`📍 ${esc(g.p.address)}`:'📍 지번주소 미입력'}</div><div class="propertyName">${esc(g.p.name)}</div></div>
- ${g.rooms.length?g.rooms.map(x=>{const unpaid=(x.r.arrears||[]).filter(a=>!a.paid).reduce((a,v)=>a+Number(v.amount||0),0);const d=daysTo(x.r.end);return `<div class="compactContract" onclick="openRoomFrom('contracts','${x.p.id}','${x.r.id}')"><div class="ccRoom">${esc(x.r.no)}호</div><div class="ccTenant">${esc(x.r.tenant||'공실')}</div><div class="ccInfo">보증금 ${moneyCompact(x.r.deposit)} · 월세 ${moneyCompact(x.r.rent)} · 만기 ${esc(x.r.end||'-')}${unpaid?` · <span style="color:var(--danger)">미납 ${moneyCompact(unpaid)}</span>`:''}${d!==null&&d>=0&&d<=180?` · D-${d}`:''}</div></div>`}).join(''):'<div class="muted" style="padding:12px 14px">등록된 호실 없음</div>'}</section>`).join(''):'<div class="muted" style="padding:18px 0">해당 계약이 없습니다.</div>'}</div>`;
+ ${g.rooms.length?g.rooms.map(x=>{const unpaid=(x.r.arrears||[]).filter(a=>!a.paid).reduce((a,v)=>a+Number(v.amount||0),0);const d=daysTo(x.r.end);return `<div class="compactContract" onclick="openRoomFrom('contracts','${x.p.id}','${x.r.id}')"><div class="ccRoom">${esc(x.r.no)}호</div><div class="ccTenant">${esc(x.r.tenant||'공실')}</div><div class="ccInfo">보증금 ${moneyCompact(x.r.deposit)} · 월세 ${moneyCompact(x.r.rent)} · 만기 ${esc(x.r.end||'-')}${unpaid?` · <span style="color:var(--danger)">미납 ${moneyCompact(unpaid)}</span>`:''}${d!==null&&d>=0&&d<=180?` · D-${d}`:''}${needsExpiryNotice(x.r)?` · <span class="noticeAlert">🔴★ 만기통보</span>`:''}</div></div>`}).join(''):'<div class="muted" style="padding:12px 14px">등록된 호실 없음</div>'}</section>`).join(''):'<div class="muted" style="padding:18px 0">해당 계약이 없습니다.</div>'}</div>`;
  showView('contracts');
 }
 function showView(v){homeView.classList.toggle('hidden',v!=='home');contractsView.classList.toggle('hidden',v!=='contracts');detailView.classList.toggle('hidden',v!=='detail');settingsView.classList.toggle('hidden',v!=='settings');navHome.classList.toggle('active',v==='home');navList.classList.remove('active');navDetail.classList.toggle('active',v==='detail');navSettings.classList.toggle('active',v==='settings')}
@@ -810,6 +849,27 @@ function showLastDetail(){showRentalList()}
 function showToast(t){toast.textContent=t;toast.style.display='block';setTimeout(()=>toast.style.display='none',1800)}
 (async()=>{await load();updateLockStatus();if(getLockCfg())showLock();else appUnlocked=true;})();
 document.getElementById('unlockPassword')?.addEventListener('keydown',e=>{if(e.key==='Enter')unlockApp()});
+
+
+let appExplicitlyExited=false;
+async function exitApp(){
+ if(!confirm('임대관리 앱을 종료할까요?'))return;
+ await save();
+ appExplicitlyExited=true;
+ if(getLockCfg()) appUnlocked=false;
+ try{window.close()}catch(_){}
+ setTimeout(()=>{if(!document.hidden){exitOverlay.classList.remove('hidden')}},180);
+}
+function resumeApp(){appExplicitlyExited=false;exitOverlay.classList.add('hidden');if(getLockCfg())showLock();else showDashboard()}
+// Android 뒤로가기/브라우저 Back 때문에 앱이 바로 빠져나가는 것을 막고 앱 내부 화면만 이동합니다.
+try{history.replaceState({rentalApp:true},'',location.href);history.pushState({rentalApp:true},'',location.href)}catch(_){}
+window.addEventListener('popstate',()=>{
+ if(appExplicitlyExited)return;
+ try{history.pushState({rentalApp:true},'',location.href)}catch(_){}
+ if(!detailView.classList.contains('hidden')) backFromDetail();
+ else if(!contractsView.classList.contains('hidden') || !settingsView.classList.contains('hidden')) showDashboard();
+ else showToast('앱 종료는 상단의 종료 버튼을 사용하세요.');
+});
 
 function quickMemo(){
  const rooms=state.properties.flatMap(p=>p.rooms.map(r=>({p,r})));
